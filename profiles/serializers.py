@@ -4,7 +4,7 @@ from django.core.validators import RegexValidator
 from .models import User, UserImage,Gender,UserRole,UserStatus
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer2(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
@@ -54,6 +54,13 @@ class UserSerializer(serializers.ModelSerializer):
     #     return value
     
 
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = '__all__'
+
+        
 class ClinicalImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserImage

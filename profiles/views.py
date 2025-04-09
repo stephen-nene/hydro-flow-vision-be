@@ -10,7 +10,7 @@ from django.contrib.auth.hashers import check_password
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status
+from rest_framework import status, viewsets
 
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -25,6 +25,13 @@ from decouple import config
 from profiles.services.emails import send_login_email,send_custom_email,send_welcome_email
 from .models import User
 from .serializers import *
+
+
+
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+
 
 ENVIRONMENT = config('ENVIRONMENT', default="development")
 
@@ -308,3 +315,100 @@ class AllUserView(APIView,AuthenticationMixin):
         
 # ----------------------- 
             
+
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows users to be viewed or edited.
+
+    * `list`: Returns a list of all users.
+    * `retrieve`: Returns the specified user.
+    * `create`: Creates a new user.
+    * `update`: Updates the specified user.
+    * `destroy`: Deletes the specified user.
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+    # -------------------------
+    # 🟩 LIST
+    # -------------------------
+    @swagger_auto_schema(
+        operation_summary="List all users.",
+        responses={200: UserSerializer(many=True)},
+        # tags=["users"]
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        List all users.
+        """
+        return super().list(request, *args, **kwargs)
+
+    # -------------------------
+    # 🟩 RETRIEVE
+    # -------------------------
+    @swagger_auto_schema(
+        operation_summary="Retrieve a user.",
+        responses={200: UserSerializer()},
+        tags=["users"]
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific user by ID.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    # -------------------------
+    # 🟩 CREATE
+    # -------------------------
+    @swagger_auto_schema(
+        operation_summary="Create a new user.",
+        responses={201: UserSerializer()},
+        tags=["users"]
+    )
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new user.
+        """
+        return super().create(request, *args, **kwargs)
+
+    # -------------------------
+    # 🟩 UPDATE
+    # -------------------------
+    @swagger_auto_schema(
+        operation_summary="Update a user.",
+        responses={200: UserSerializer()},
+        tags=["users"]
+    )
+    def update(self, request, *args, **kwargs):
+        """
+        Fully update a user.
+        """
+        return super().update(request, *args, **kwargs)
+
+    # -------------------------
+    # 🟫 PARTIAL UPDATE (PATCH)
+    # -------------------------
+    @swagger_auto_schema(
+        operation_summary="Partially update a user.",
+        responses={200: UserSerializer()},
+        tags=["users"]
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a user.
+        """
+        return super().partial_update(request, *args, **kwargs)
+
+    # -------------------------
+    # 🟩 DESTROY
+    # -------------------------
+    @swagger_auto_schema(
+        operation_summary="Delete a user.",
+        responses={204: "No content"},
+        tags=["users"]
+    )
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a user.
+        """
+        return super().destroy(request, *args, **kwargs)

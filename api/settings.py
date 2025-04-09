@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'profiles',
     'management',
+    'drf_yasg'
 ]
 
 MIDDLEWARE = [
@@ -116,6 +117,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://tiberbuke.onrender.com',
 ]
 ALLOWED_HOSTS = ['tiberbu.onrender.com' "localhost", "127.0.0.1"]
+
 
 
 ROOT_URLCONF = 'api.urls'

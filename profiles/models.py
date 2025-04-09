@@ -17,6 +17,8 @@ class UserRole(models.TextChoices):
     CUSTOMER = 'customer','customer'
     SYSTEM_ADMIN = 'system_admin', 'System Administrator'
     SUPPORT_STAFF = 'support', 'Support Staff'
+    FINANCE_STAFF = 'finance', 'Finance Staff'
+    
 
 class UserStatus(models.TextChoices):
     INACTIVE = 'inactive', 'Inactive'    
@@ -78,11 +80,6 @@ class User(AbstractUser):
         help_text="International format: +[country code][number]"
     )   
 
-    terms_accepted_at = models.DateTimeField(null=True, blank=True)
-    privacy_policy_version = models.CharField(max_length=20, blank=True)
-
-    mfa_enabled = models.BooleanField(default=False)
-    token = models.CharField(max_length=255, null=True, blank=True, db_index=True)
 
     groups = models.ManyToManyField(Group, related_name="users", blank=True)
     user_permissions = models.ManyToManyField(Permission, related_name="user_permissions", blank=True)

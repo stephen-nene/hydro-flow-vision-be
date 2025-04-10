@@ -4,6 +4,8 @@ from .views import *
 from profiles.views import FunnyAPIView
 
 router = routers.DefaultRouter()
+router.register(r'waterguidelines', WaterGuidelineViewSet, basename='user')
+router.register(r'customerrequests', CustomerRequestViewSet, basename='customerrequest')
 # router.register(r'specializations', SpecializationViewSet, basename='specialization')
 
 

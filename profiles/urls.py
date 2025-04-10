@@ -10,7 +10,7 @@ router.register(r'users', UserViewSet, basename='user')
 # router.register(r'logs', LogSheetViewSet)
 
 urlpatterns = [
-    # path('api/', include(router.urls)),
+    path('', include(router.urls)),
     
         # Authentication routes ----------------------------
     path('auth/me', MeView.as_view(), name='me'),  # Logged-in user info route

@@ -114,7 +114,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:1420",
     'https://ds-purifier.onrender.com'  
 ]
-ALLOWED_HOSTS = ['ds-purifier.onrender.com' "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ['ds-purifier.onrender.com', "localhost", "127.0.0.1"]
 
 
 

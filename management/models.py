@@ -176,6 +176,12 @@ class WaterReportAttachment(BaseUUIDModel, TimeStampedModel):
     """
     Attachments related to water lab reports, such as supporting documents, images, or external files.
     """
+    customer_request = models.ForeignKey(
+        CustomerRequest,
+        on_delete=models.CASCADE,
+        related_name='attachments',
+        help_text="Associated customer request that initiated the lab report."
+    )
     water_report = models.ForeignKey(
         WaterLabReport,
         on_delete=models.CASCADE,
@@ -217,7 +223,7 @@ class WaterReportAttachment(BaseUUIDModel, TimeStampedModel):
         verbose_name = "Water Report Attachment"
         verbose_name_plural = "Water Report Attachments"
         indexes = [
-            models.Index(fields=['water_report']),
+            models.Index(fields=['customer_request','water_report']),
         ]
         ordering = ['-created_at']
 

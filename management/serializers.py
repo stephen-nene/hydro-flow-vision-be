@@ -93,18 +93,31 @@ class WaterLabReportSerializer2(serializers.ModelSerializer):
         model = WaterLabReport
         fields = ['id', 'report_source', 'report_date', 'test_type','params']
 
+class WaterReportAttachmentSerializer(serializers.ModelSerializer):
+    document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
+    
+    class Meta:
+        model = WaterReportAttachment
+        fields = [
+            'id', 'water_report', 'file', 'document_type', 'document_type_display',
+            'caption', 'description', 'is_sensitive', 'access_audit', 'created_at'
+        ]
+        read_only_fields = fields
+
+
+
 class CustomerRequestSerializer(serializers.ModelSerializer):
     customer = UserSerializer(read_only=True)
     handlers = UserSerializer(many=True, read_only=True)
     water_lab_reports = WaterLabReportSerializer2(many=True, read_only=True)  # Related reports
-
+    report_attachments = WaterReportAttachmentSerializer(many=True, read_only=True)
     class Meta:
         model = CustomerRequest
         fields = [
-            'id', 'customer', 'handlers', 'water_source', 
+            'id', 'customer', 'handlers',  'water_source', 
             'daily_water_requirement', 'daily_flow_rate',
             'water_usage', 'site_location', 'extras', 
-            'budjet', 'status', 'water_lab_reports', 'created_at'
+            'budjet', 'status', 'water_lab_reports', 'report_attachments','created_at'
         ]
         read_only_fields = fields
 
@@ -125,16 +138,16 @@ class WaterLabReportSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-class WaterReportAttachmentSerializer(serializers.ModelSerializer):
-    document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
+# class WaterReportAttachmentSerializer(serializers.ModelSerializer):
+#     document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
     
-    class Meta:
-        model = WaterReportAttachment
-        fields = [
-            'id', 'water_report', 'file', 'document_type', 'document_type_display',
-            'caption', 'description', 'is_sensitive', 'access_audit', 'created_at'
-        ]
-        read_only_fields = fields
+#     class Meta:
+#         model = WaterReportAttachment
+#         fields = [
+#             'id', 'water_report', 'file', 'document_type', 'document_type_display',
+#             'caption', 'description', 'is_sensitive', 'access_audit', 'created_at'
+#         ]
+#         read_only_fields = fields
 
 class ManagementAttachmentSerializer(serializers.ModelSerializer):
     document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)

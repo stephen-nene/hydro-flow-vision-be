@@ -14,17 +14,27 @@ from django.contrib.auth.models import User
 
 # Enums 
 class DocumentType(models.TextChoices):
-    # doc tyes for water treatements
-    WATER_TREATMENT_PLAN = 'Water Treatment Plan', 'Water Treatment Plan'
-    WATER_QUALITY_REPORT = 'Water Quality Report', 'Water Quality Report'
-    WATER_QUALITY_MONITORING = 'Water Quality Monitoring', 'Water Quality Monitoring'
-    WATER_QUALITY_ASSESSMENT = 'Water Quality Assessment', 'Water Quality Assessment'
-    WATER_QUALITY_REGULATIONS = 'Water Quality Regulations', 'Water Quality Regulations'
-    
+    WATER_ANALYSIS_REPORT = 'WAR', 'Water Analysis Report'
+    TREATMENT_PLAN = 'TP', 'Treatment Plan'
+    COMPLIANCE_CERTIFICATE = 'CC', 'Compliance Certificate'
+    LAB_TEST_RESULT = 'LTR', 'Lab Test Result'
+    EQUIPMENT_SPEC = 'ES', 'Equipment Specification'
+    MAINTENANCE_LOG = 'ML', 'Maintenance Log'
+    OPERATIONAL_REPORT = 'OR', 'Operational Report'
+    SAFETY_DATA_SHEET = 'SDS', 'Safety Data Sheet'
+    PERMIT = 'PER', 'Permit/License'
+    CONTRACT = 'CON', 'Contract Agreement'
+
 class TestType(models.TextChoices):
     GENERAL = 'General', 'General'
-    CHEMICAL = 'Chemical', 'Chemical'
+    # CHEMICAL = 'Chemical', 'Chemical'
     BACTERIOLOGICAL = 'Bacteriological', 'Bacteriological'
+    PHYSICAL = 'PHY', 'Physical Characteristics'
+    CHEMICAL = 'CHE', 'Chemical Composition'
+    MICROBIOLOGICAL = 'MIC', 'Microbiological'
+    RADIOLOGICAL = 'RAD', 'Radiological'
+    TOXICOLOGICAL = 'TOX', 'Toxicological'
+    COMPREHENSIVE = 'COM', 'Comprehensive Analysis'
     
 class ReportSource(models.TextChoices):
         INTERNAL = 'Internal', 'Internal'
@@ -115,6 +125,7 @@ class WaterLabReport(BaseUUIDModel, TimeStampedModel):
         choices=ReportSource.choices,
         help_text="Origin of the water lab report (internal/external)."
     )
+    report_date = models.DateField(null=True, blank=True)
     test_type = models.CharField(
         max_length=50,
         choices=TestType.choices,

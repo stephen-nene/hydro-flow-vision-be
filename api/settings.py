@@ -107,17 +107,14 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:1420", 
-     'https://tiberbuke.vercel.app',
-    'https://tiberbu.onrender.com'     
+    'https://ds-purifier.onrender.com'   
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:1420",
-    "https://tiberbuke.vercel.app/",
-    'https://tiberbu.onrender.com'
-    'https://tiberbuke.onrender.com',
+    'https://ds-purifier.onrender.com'  
 ]
-ALLOWED_HOSTS = ['tiberbu.onrender.com' "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ['ds-purifier.onrender.com' "localhost", "127.0.0.1"]
 
 
 

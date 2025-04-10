@@ -11,16 +11,22 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status, viewsets
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
-from rest_framework_simplejwt.exceptions import AuthenticationFailed
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.exceptions import AuthenticationFailed, TokenError
+from rest_framework_simplejwt.views import TokenObtainPairView,TokenVerifyView
 from rest_framework_simplejwt.tokens import RefreshToken,AccessToken
 # from rest_framework.exceptions import AuthenticationFailed
 
 
+from rest_framework_simplejwt.settings import api_settings
+import jwt
+import time
+from django.contrib.auth import get_user_model
 import requests
 from decouple import config
 
+from django.conf import settings
 
 from profiles.services.emails import send_login_email,send_custom_email,send_welcome_email
 from .models import User
@@ -227,6 +233,24 @@ class CustomLoginView(APIView):
         )
         return response
     
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        # First, call the original post method to get the token
+        response = super().post(request, *args, **kwargs)
+        
+        # After obtaining the token, get the user information
+        user = request.user
+        user_data = UserSerializer(user).data  # Serialize the user data
+        
+        # Return the token along with user info
+        return Response({
+            'access_token': response.data['access'],
+            'refresh_token': response.data['refresh'],
+            'user_info': user_data
+        }, status=status.HTTP_200_OK)
+    
+
 class UserCreateView(APIView):
     def post(self, request):
         try:
@@ -257,18 +281,35 @@ class ForgotPasswordView(APIView):
 # ---------------------   logout   ---------------------
 
 class LogoutView(APIView):
+    # def post(self, request):
+    #     try:
+    #         response = Response({"message": "Logout successful."}, status=status.HTTP_200_OK)
+    #         response.delete_cookie(key='access', samesite="None")
+    #         response.delete_cookie(key='refresh', samesite="None")
+    #         return response
+
+    #     except Exception as e:
+    #         return Response(
+    #             {"error": "Something went wrong during logout.", "details": str(e)},
+    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    #         )
+    """
+    Logout the user by blacklisting the refresh token.
+    """
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         try:
-            response = Response({"message": "Logout successful."}, status=status.HTTP_200_OK)
-            response.delete_cookie(key='access', samesite="None")
-            response.delete_cookie(key='refresh', samesite="None")
-            return response
-
+            # Get the refresh token from the request (can be in headers or body)
+            refresh_token = request.data.get('refresh')
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response(
-                {"error": "Something went wrong during logout.", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             
       
 
@@ -299,7 +340,55 @@ class MeView(APIView, AuthenticationMixin):
         
         return Response({'User': serialized_user})
       
+
+class TokenVerifyViewExtended(TokenVerifyView):
+    """
+    Extends TokenVerifyView to also return user data along with the token's validity.
+    """
+
+    def post(self, request, *args, **kwargs):
+        token = request.data.get("token")
+        if not token:
+            return Response({"detail": "Token is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Decode the JWT token
+            decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=[api_settings.JWT_ALGORITHM])
+
+            # Check if token is expired or invalid
+            if 'exp' in decoded_token and decoded_token['exp'] < int(time.time()):
+                raise TokenError("Token has expired.")
+
+            # Fetch the user using the user id from the decoded token
+            user_id = decoded_token.get('user_id')  # Assuming 'user_id' is stored in the token
+            if not user_id:
+                raise TokenError("No user data in token.")
             
+            # Retrieve the user instance
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+
+            # Call the original TokenVerifyView post method
+            response = super().post(request, *args, **kwargs)
+
+            # Return the response with user data and token validity
+            response.data['valid'] = True
+            response.data['user'] = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+            }
+            return response
+
+        except jwt.ExpiredSignatureError:
+            return Response({"detail": "Token has expired."}, status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.DecodeError:
+            return Response({"detail": "Token is invalid."}, status=status.HTTP_401_UNAUTHORIZED)
+        except TokenError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
 # ---------------    get all user2   ---------------------
 
 class AllUserView(APIView,AuthenticationMixin):
@@ -335,7 +424,7 @@ class UserViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(
         operation_summary="List all users.",
         responses={200: UserSerializer(many=True)},
-        # tags=["users"]
+        tags=["users"]
     )
     def list(self, request, *args, **kwargs):
         """

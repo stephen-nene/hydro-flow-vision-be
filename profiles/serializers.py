@@ -58,7 +58,9 @@ class UserSerializer2(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = '__all__'
+        # fields = '__all__'
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'status', 'date_of_birth', 'gender']
+
 
         
 class ClinicalImageSerializer(serializers.ModelSerializer):

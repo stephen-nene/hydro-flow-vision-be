@@ -1,5 +1,6 @@
 from rest_framework import viewsets, permissions, status
 
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 
 
@@ -120,6 +121,19 @@ class CustomerRequestViewSet(viewsets.ModelViewSet):
     queryset = CustomerRequest.objects.all()
     serializer_class = CustomerRequestSerializer
 
+        # Override the 'get_queryset' method to apply optimizations
+    def get_queryset(self):
+        # Prefetch related WaterLabReport and WaterLabParameter
+        water_lab_reports = WaterLabReport.objects.prefetch_related('parameters')
+
+        queryset = CustomerRequest.objects.select_related(
+            'customer'  # Optimizing the ForeignKey to 'customer'
+        ).prefetch_related(
+            'handlers',  # Prefetch the many-to-many relationship with handlers (users)
+            Prefetch('water_lab_reports', queryset=water_lab_reports)  # Prefetch related water_lab_reports and their parameters
+        )
+        return queryset
+
     # -------------------------
     # 🟩 LIST
     # -------------------------
@@ -154,6 +168,9 @@ class CustomerRequestViewSet(viewsets.ModelViewSet):
         tags=["Customer Requests"]
     )
     def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        serializer = self.get_serializer(instance)
         return super().retrieve(request, *args, **kwargs)
     # -------------------------
     # 🟩 CREATE

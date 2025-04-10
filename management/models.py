@@ -7,9 +7,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator, FileExt
 from django.utils import timezone
 from profiles.models import *
 from django.contrib.auth.models import User
-from django.contrib.auth.models import User
-from django.contrib.auth.models import User
-from django.contrib.auth.models import User
+from django.conf import settings
 
 
 # Enums 
@@ -35,7 +33,7 @@ class TestType(models.TextChoices):
     RADIOLOGICAL = 'RAD', 'Radiological'
     TOXICOLOGICAL = 'TOX', 'Toxicological'
     COMPREHENSIVE = 'COM', 'Comprehensive Analysis'
-    
+
 class ReportSource(models.TextChoices):
         INTERNAL = 'Internal', 'Internal'
         EXTERNAL = 'External', 'External'
@@ -94,10 +92,11 @@ class WaterGuidelineParameter(models.Model):
         return f"{self.name} ({self.guideline.body} - {self.guideline.usage})"
 
 
-
 class CustomerRequest(BaseUUIDModel, TimeStampedModel):
-    customer = models.ForeignKey(User, on_delete=models.CASCADE)
-    handlers = models.ManyToManyField(User, related_name='staffs', blank=True)
+    # customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    handlers = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='staffs', blank=True)
     water_source = models.CharField(max_length=255)
     daily_water_requirement = models.PositiveIntegerField()
     daily_flow_rate = models.PositiveIntegerField()

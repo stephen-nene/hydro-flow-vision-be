@@ -81,25 +81,34 @@ class WaterGuidelineSerializer(serializers.ModelSerializer):
         fields = ['id', 'body', 'usage', 'parameters']
         read_only_fields = fields
 
+class WaterLabParameterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WaterLabParameter
+        fields = ['id', 'name', 'unit', 'value']
+        read_only_fields = fields
+
+class WaterLabReportSerializer2(serializers.ModelSerializer):
+    params = WaterLabParameterSerializer(many=True, read_only=True)
+    class Meta:
+        model = WaterLabReport
+        fields = ['id', 'report_source', 'report_date', 'test_type','params']
+
 class CustomerRequestSerializer(serializers.ModelSerializer):
     customer = UserSerializer(read_only=True)
     handlers = UserSerializer(many=True, read_only=True)
-    
+    water_lab_reports = WaterLabReportSerializer2(many=True, read_only=True)  # Related reports
+
     class Meta:
         model = CustomerRequest
         fields = [
             'id', 'customer', 'handlers', 'water_source', 
             'daily_water_requirement', 'daily_flow_rate',
             'water_usage', 'site_location', 'extras', 
-            'budjet', 'status', 'created_at'
+            'budjet', 'status', 'water_lab_reports', 'created_at'
         ]
         read_only_fields = fields
 
-class WaterLabParameterSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WaterLabParameter
-        fields = ['id', 'name', 'unit', 'value']
-        read_only_fields = fields
+
 
 class WaterLabReportSerializer(serializers.ModelSerializer):
     parameters = WaterLabParameterSerializer(many=True, read_only=True)

@@ -59,8 +59,8 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_PATH": "/",  # Available for all routes
 }
 
-
 # Application definition
+AUTH_USER_MODEL = 'profiles.User'
 
 
 INSTALLED_APPS = [    
@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'django.contrib.admindocs',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'profiles',
     'management',
     'drf_yasg'

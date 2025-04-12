@@ -67,7 +67,8 @@ class TimeStampedModel(models.Model):
 class WaterGuideline(BaseUUIDModel, TimeStampedModel):
     body =models.CharField(max_length=255) # WHO, KEBS, EPA, etc.
     usage = models.CharField(max_length=255)  # e.g. "domestic", "bottling", "industrial"
-
+    description = models.TextField(blank=True, null=True, help_text="Detailed description of the guideline.")
+    status =models.CharField(max_length=255,default='pending' , choices=[('pending', 'Pending'),('active', 'Active'), ('inactive', 'Inactive')])
     # physical Analysis
     # pH = models.FloatField()
     # suspended_solids = models.FloatField()

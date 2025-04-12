@@ -78,7 +78,7 @@ class WaterGuidelineSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = WaterGuideline
-        fields = ['id', 'body', 'usage', 'parameters']
+        fields = ['id', 'body', 'usage','description', 'parameters']
         read_only_fields = fields
 
 class WaterLabParameterSerializer(serializers.ModelSerializer):

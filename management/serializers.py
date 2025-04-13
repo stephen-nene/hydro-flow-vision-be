@@ -105,7 +105,6 @@ class WaterReportAttachmentSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-
 class CustomerRequestSerializer(serializers.ModelSerializer):
     customer = UserSerializer(read_only=True)
     handlers = UserSerializer(many=True, read_only=True)

@@ -209,29 +209,28 @@ tools = [get_pump_details, get_weather, calculator, unit_converter]
 tools_by_name = {tool.name: tool for tool in tools}
 
 # Initialize the LLM
-llm = ChatOpenAI(
-    # model="deepseek-ai/deepseek-r1",
-    model='meta/llama-4-scout-17b-16e-instruct',
-    # model="meta/llama-3.2-nv-embedqa-1b-v2",
-    temperature=0.3,  # Lower temperature for more precise tool use
-    max_tokens=1024,
-    timeout=30,
-    max_retries=3,
-    api_key=config('NVIDIA_SECRET_KEY'),
-    base_url="https://integrate.api.nvidia.com/v1",
-)
+# llm = ChatOpenAI(
+#     # model="deepseek-ai/deepseek-r1",
+#     model='meta/llama-4-scout-17b-16e-instruct',
+#     temperature=0.3,  # Lower temperature for more precise tool use
+#     max_tokens=1024,
+#     timeout=30,
+#     max_retries=3,
+#     api_key=config('NVIDIA_SECRET_KEY'),
+#     base_url="https://integrate.api.nvidia.com/v1",
+# )
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Create LLM class
-# llm = ChatGoogleGenerativeAI(
-#     model= "gemini-2.0-flash",
-#     temperature=1.0,
-#     max_tokens=None,
-#     timeout=None,
-#     max_retries=2,
-#     google_api_key=config('GOOGLE_SECRET_KEY'),
-# )
+llm = ChatGoogleGenerativeAI(
+    model= "gemini-2.0-flash",
+    temperature=1.0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
+    google_api_key=config('GOOGLE_SECRET_KEY'),
+)
 
 # Create a system message that explicitly instructs the model to use tools
 system_message = SystemMessage(
@@ -252,6 +251,7 @@ When you need information that might be available through these tools, you MUST 
 After receiving tool outputs, analyze the information and provide a clear, helpful response.
 """
 )
+
 
 # Bind tools to the model with explicit instructions
 model = llm.bind_tools(tools)
@@ -448,3 +448,4 @@ if __name__ == "__main__":
     
     for query in queries:
         run_agent(query)
+

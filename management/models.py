@@ -107,7 +107,6 @@ class CustomerRequest(BaseUUIDModel, TimeStampedModel):
     budjet = models.JSONField(default=dict)
     status = models.CharField(max_length=255,choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')])
 
-    
 
 class WaterLabReport(BaseUUIDModel, TimeStampedModel):
     """

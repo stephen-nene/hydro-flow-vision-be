@@ -231,6 +231,7 @@ def analyse_lab_report(report: str) -> Dict[str, Any]:
     """
     Take a lab report and analyze it to parse the data into a nice formart that the AI can analyse
     """
+    # ocr
 
 @tool("treatment_recommendation", args_schema=TreatmentRecommendationInput)
 def treatment_recommendation(report: str) -> Dict[str, Any]:

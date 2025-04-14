@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.views import View
 from django.http import JsonResponse
 from django.db import transaction
+from django.db.models import Q
 
 
 from django.contrib.auth.hashers import check_password
@@ -36,7 +37,7 @@ from .serializers import *
 
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
+
 
 
 ENVIRONMENT = config('ENVIRONMENT', default="development")
@@ -142,8 +143,6 @@ class FunnyAPIView(View):
         return JsonResponse(response_data)
 
 
-
-
 # ----------------- Authentication Views -----------------
 
 class AuthenticationMixin:
@@ -181,7 +180,6 @@ class AuthenticationMixin:
         response.delete_cookie('refresh', samesite="None")
         raise AuthenticationFailed('Unauthorized, please log in.')
     
-
 # ---------------------   login   ---------------------
 
 class CustomLoginView(APIView):
@@ -194,9 +192,23 @@ class CustomLoginView(APIView):
         if not identifier or not password:
             return Response({"error": "Both identifier and password are required."}, status=400)
         
-        user = User.objects.filter(email=identifier).first() or \
-               User.objects.filter(phone_number=identifier).first() or \
-               User.objects.filter(username=identifier).first()
+        # user = User.objects.filter(email=identifier).first() or \
+        #        User.objects.filter(phone_number=identifier).first() or \
+        #        User.objects.filter(username=identifier).first()
+
+        # user = User.objects.filter(
+        #         Q(email__iexact=identifier) |
+        #         Q(phone_number__iexact=identifier) |
+        #         Q(username__iexact=identifier)
+        #     ).first()
+
+        fields = ['email', 'phone_number', 'username']
+
+        user = None
+        for field in fields:
+            user = User.objects.filter(**{field: identifier}).first()
+            if user:
+                break
 
         if not user:
             raise AuthenticationFailed("User not found.")

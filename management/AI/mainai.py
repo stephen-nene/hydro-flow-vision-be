@@ -69,6 +69,7 @@ When you need information that might be available through these tools, you MUST 
 2. Choose the appropriate tool for the job
 3. Format arguments carefully according to the tool's requirements
 4. Wait for tool results before giving final answers
+5. pause after each step and analyse the data given to you
 
 After receiving tool outputs, analyze the information and provide a clear, helpful response.
 """

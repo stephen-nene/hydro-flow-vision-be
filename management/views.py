@@ -253,7 +253,9 @@ class WaterLabReportViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing water laboratory test reports.
     """
-    queryset = WaterLabReport.objects.all()
+    queryset = WaterLabReport.objects.prefetch_related(
+        Prefetch('parameters', queryset=WaterLabParameter.objects.all())
+    )
     serializer_class = WaterLabReportSerializer
 
     # -------------------------
@@ -385,3 +387,24 @@ class WaterReportAttachmentViewSet(viewsets.ModelViewSet):
         attachments = self.queryset.filter(document_type=doc_type)
         serializer = self.get_serializer(attachments, many=True)
         return Response(serializer.data)
+    
+
+class AiProcessCustomerRequest():
+    # take the id of a customer request
+    def __init__(self, customer_request):
+        self.customer_request = customer_request
+
+    def format_customer_request_prompt():
+        # Format the customer request data into a string that can be used as a prompt for AI processing
+        # This is a placeholder for actual formatting logic
+        # In a real scenario, this would involve converting the customer request data into a format suitable for the AI model
+        return "Customer request prompt goes here"
+
+    def process(self):
+        # Simulate AI processing
+        # This is a placeholder for actual AI processing logic
+        # In a real scenario, this would involve calling an AI service or using a library
+        # For demonstration, we'll just update the status to 'approved'
+        self.customer_request.status = 'approved'
+        self.customer_request.save()
+        return self.customer_request

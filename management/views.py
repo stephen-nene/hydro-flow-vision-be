@@ -277,36 +277,43 @@ class WaterLabReportViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing water laboratory test reports.
     """
-    queryset = WaterLabReport.objects.prefetch_related(
-        Prefetch('parameters', queryset=WaterLabParameter.objects.all())
-    )
+    # queryset = WaterLabReport.objects.prefetch_related(
+    #     Prefetch('parameters', queryset=WaterLabParameter.objects.all())
+    # )
+    queryset = WaterLabReport.objects.all()
     serializer_class = WaterLabReportSerializer
 
     # -------------------------
     # 🟩 CREATE
     # -------------------------
+    # @swagger_auto_schema(
+    #     operation_summary="Create a new lab report with parameters",
+    #     request_body=openapi.Schema(
+    #         type=openapi.TYPE_OBJECT,
+    #         properties={
+    #             **WaterLabReportSerializer().get_fields(),
+    #             'parameters': openapi.Schema(
+    #                 type=openapi.TYPE_ARRAY,
+    #                 items=openapi.Items(
+    #                     type=openapi.TYPE_OBJECT,
+    #                     properties={
+    #                         'name': openapi.Schema(type=openapi.TYPE_STRING),
+    #                         'value': openapi.Schema(type=openapi.TYPE_NUMBER),
+    #                         'unit': openapi.Schema(type=openapi.TYPE_STRING)
+    #                     }
+    #                 )
+    #             )
+    #         }
+    #     ),
+    #     responses={201: WaterLabReportSerializer()},
+    #     tags=["Laboratory Reports"]
+    # )
     @swagger_auto_schema(
         operation_summary="Create a new lab report with parameters",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                **WaterLabReportSerializer().get_fields(),
-                'parameters': openapi.Schema(
-                    type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(
-                        type=openapi.TYPE_OBJECT,
-                        properties={
-                            'name': openapi.Schema(type=openapi.TYPE_STRING),
-                            'value': openapi.Schema(type=openapi.TYPE_NUMBER),
-                            'unit': openapi.Schema(type=openapi.TYPE_STRING)
-                        }
-                    )
-                )
-            }
-        ),
         responses={201: WaterLabReportSerializer()},
         tags=["Laboratory Reports"]
     )
+
     def create(self, request, *args, **kwargs):
         # Handle report creation with parameters
         report_data = request.data.copy()
@@ -433,64 +440,76 @@ class AiProcessCustomerRequest():
         self.customer_request.save()
         return self.customer_request
     
+logger = logging.getLogger(__name__)
+
 class FormatCustomerRequestPromptView(APIView):
     """
-    Generates a formatted AI-ready request summary from a customer request using LLM.
+    View that formats a customer request using LLM to produce a structured, AI-ready prompt.
     """
 
+    @swagger_auto_schema(
+        operation_summary="Generate AI-ready prompt from customer request",
+        manual_parameters=[
+            openapi.Parameter(
+                'guideline_id',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                required=False,
+                description='Optional guideline ID to consider when formatting the customer request'
+            )
+        ],
+        responses={
+            200: openapi.Response(description="Formatted prompt returned successfully"),
+            404: openapi.Response(description="Customer request not found"),
+        },
+        tags=["Customer Request"]
+    )
     def get(self, request, request_id):
+        guideline_id = request.query_params.get('guideline_id')
+        if guideline_id:
+            print(f"Guideline ID received: {guideline_id}")
+            logger.debug(f"Guideline ID: {guideline_id}")
+
         try:
-            # Load the customer request by UUID
             request_obj = CustomerRequest.objects.get(id=request_id)
         except CustomerRequest.DoesNotExist:
             return Response({"error": "Customer request not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Extract water parameters from lab reports
         water_params = []
         for report in request_obj.water_lab_reports.all():
             for param in report.parameters.all():
-                # Assuming param is a dictionary now, append the necessary data
-                # Log the data of 'param' before the error occurs
-                # logger.debug(f"Param data: {param}")  # This will log the entire object
-                
                 if isinstance(param, str):
-                    # Assuming param is a string in the format "name - value"
                     try:
                         name, value = param.split(' - ')
                         water_params.append({
-                            "name": name if name else "Unknown",
-                            "value": value if value else "N/A",
-                            "unit": "Unknown"  # You might need to handle unit differently if it's part of the string
+                            "name": name or "Unknown",
+                            "value": value or "N/A",
+                            "unit": "Unknown"
                         })
                     except ValueError:
-                        # Handle the case where the string format is incorrect
                         water_params.append({
                             "name": param,
                             "value": "N/A",
                             "unit": "Unknown"
                         })
                 else:
-                    # If param is not a string, access it directly as an object
                     water_params.append({
-                        "name": param.name if param.name else "Unknown",
-                        "value": param.value if param.value else "N/A",
-                        "unit": param.unit if param.unit else "Unknown"
+                        "name": getattr(param, 'name', "Unknown"),
+                        "value": getattr(param, 'value', "N/A"),
+                        "unit": getattr(param, 'unit', "Unknown")
                     })
 
-        # Prepare tool input
         tool_input = {
-            "customer_location": request_obj.site_location['name'] if isinstance(request_obj.site_location, dict) else request_obj.site_location.name,
+            "customer_location": request_obj.site_location.get('name') if isinstance(request_obj.site_location, dict) else request_obj.site_location.name,
             "water_source": request_obj.water_source,
             "water_usage": request_obj.water_usage,
             "daily_flow_rate": request_obj.daily_flow_rate,
             "daily_water_requirement": request_obj.daily_water_requirement,
-            # "budget_amount": request_obj.budjet.get("amount"),
             "budget_currency": request_obj.budjet.get("currency"),
             "water_parameters": water_params,
-            "notes": request_obj.extras.get("notes", "No additional notes provided.")
+            "notes": request_obj.extras.get("notes", "No additional notes provided."),
         }
 
-        # Invoke the LLM-powered tool
         result = format_customer_request_prompt.invoke(tool_input)
 
         return Response({

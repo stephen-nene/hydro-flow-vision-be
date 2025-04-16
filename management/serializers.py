@@ -88,10 +88,10 @@ class WaterLabParameterSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 class WaterLabReportSerializer2(serializers.ModelSerializer):
-    params = WaterLabParameterSerializer(many=True, read_only=True)
+    parameters = WaterLabParameterSerializer(many=True, read_only=True)
     class Meta:
         model = WaterLabReport
-        fields = ['id', 'report_source', 'report_date', 'test_type','params']
+        fields = ['id', 'report_source', 'report_date', 'test_type','parameters']
 
 class WaterReportAttachmentSerializer(serializers.ModelSerializer):
     document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)

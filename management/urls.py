@@ -16,6 +16,6 @@ urlpatterns = [
     path('home', FunnyAPIView.as_view(), name='default_view'),
     # router.urls,
     
-    path("agent/process-customer-request/", AiProcessCustomerRequest),
+    path("agent/process-customer-request/<uuid:request_id>", FormatCustomerRequestPromptView.as_view()),
 
 ]

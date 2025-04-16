@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, status
+from rest_framework.views import APIView
 
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
@@ -10,6 +11,29 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .models import *
 from .serializers import *
+from uuid import UUID
+
+from .AI.tools import format_customer_request_prompt
+
+
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# Create a console handler to output logs to the console
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+
+# Create a formatter and attach it to the handler
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+
+# Add the handler to the logger
+logger.addHandler(ch)
+
+
 
 class WaterGuidelineViewSet(viewsets.ModelViewSet):
     """
@@ -408,3 +432,68 @@ class AiProcessCustomerRequest():
         self.customer_request.status = 'approved'
         self.customer_request.save()
         return self.customer_request
+    
+class FormatCustomerRequestPromptView(APIView):
+    """
+    Generates a formatted AI-ready request summary from a customer request using LLM.
+    """
+
+    def get(self, request, request_id):
+        try:
+            # Load the customer request by UUID
+            request_obj = CustomerRequest.objects.get(id=request_id)
+        except CustomerRequest.DoesNotExist:
+            return Response({"error": "Customer request not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Extract water parameters from lab reports
+        water_params = []
+        for report in request_obj.water_lab_reports.all():
+            for param in report.parameters.all():
+                # Assuming param is a dictionary now, append the necessary data
+                # Log the data of 'param' before the error occurs
+                # logger.debug(f"Param data: {param}")  # This will log the entire object
+                
+                if isinstance(param, str):
+                    # Assuming param is a string in the format "name - value"
+                    try:
+                        name, value = param.split(' - ')
+                        water_params.append({
+                            "name": name if name else "Unknown",
+                            "value": value if value else "N/A",
+                            "unit": "Unknown"  # You might need to handle unit differently if it's part of the string
+                        })
+                    except ValueError:
+                        # Handle the case where the string format is incorrect
+                        water_params.append({
+                            "name": param,
+                            "value": "N/A",
+                            "unit": "Unknown"
+                        })
+                else:
+                    # If param is not a string, access it directly as an object
+                    water_params.append({
+                        "name": param.name if param.name else "Unknown",
+                        "value": param.value if param.value else "N/A",
+                        "unit": param.unit if param.unit else "Unknown"
+                    })
+
+        # Prepare tool input
+        tool_input = {
+            "customer_location": request_obj.site_location['name'] if isinstance(request_obj.site_location, dict) else request_obj.site_location.name,
+            "water_source": request_obj.water_source,
+            "water_usage": request_obj.water_usage,
+            "daily_flow_rate": request_obj.daily_flow_rate,
+            "daily_water_requirement": request_obj.daily_water_requirement,
+            # "budget_amount": request_obj.budjet.get("amount"),
+            "budget_currency": request_obj.budjet.get("currency"),
+            "water_parameters": water_params,
+            "notes": request_obj.extras.get("notes", "No additional notes provided.")
+        }
+
+        # Invoke the LLM-powered tool
+        result = format_customer_request_prompt.invoke(tool_input)
+
+        return Response({
+            "formatted_prompt": result["formatted_prompt"],
+            "request_id": str(request_id)
+        }, status=status.HTTP_200_OK)

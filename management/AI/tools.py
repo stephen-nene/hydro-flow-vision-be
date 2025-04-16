@@ -14,6 +14,23 @@ import logging
 from langgraph.graph import StateGraph, END
 from langchain_core.runnables import RunnableConfig
 
+
+# Initialize the LLM
+llm = ChatOpenAI(
+    # model="deepseek-ai/deepseek-r1",
+    model='meta/llama-4-scout-17b-16e-instruct',
+    # model="google/gemma-3-27b-it",
+    temperature=0.3,  
+    max_tokens=1024,
+    timeout=30,
+#   top_p=0.7,
+    max_retries=3,
+    api_key=config('NVIDIA_SECRET_KEY'),
+    base_url="https://integrate.api.nvidia.com/v1",
+
+)
+
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,17 +45,6 @@ class AgentState(TypedDict):
 # Define input schemas for tools
 class PumpSearchInput(BaseModel):
     model_name: str = Field(description="The model name of the pump to search for")
-
-class WeatherInput(BaseModel):
-    location: str = Field(description="City or location to get weather for")
-
-class CalculatorInput(BaseModel):
-    expression: str = Field(description="Mathematical expression to evaluate")
-
-class ConversionInput(BaseModel):
-    value: float = Field(description="Value to convert")
-    from_unit: str = Field(description="Source unit (e.g., 'meters', 'feet', 'liters')")
-    to_unit: str = Field(description="Target unit (e.g., 'meters', 'feet', 'liters')")
 
 class AnalyseLabReportInput(BaseModel):
     # it will be a documnet/cvc of the lab results
@@ -59,6 +65,41 @@ class QuotationGeneratorInput(BaseModel):
 class ProposalGeneratorInput(BaseModel):
     # it will be a documnet/cvc of the lab results
     text: str = Field(description="Text to analyze")
+
+@tool("analyse_lab_report", args_schema=AnalyseLabReportInput)
+def analyse_lab_report(report: str) -> Dict[str, Any]:
+    """
+    Take a lab report and analyze it to parse the data into a nice formart that the AI can analyse
+    """
+    # ocr
+
+@tool("treatment_recommendation", args_schema=TreatmentRecommendationInput)
+def treatment_recommendation(report: str) -> Dict[str, Any]:
+    """
+    Take a analysed lab report and provides a treatment recommendations
+    """
+
+
+@tool("RO Sizing", args_schema=ROSizingInput)
+def ro_sizing(report: str) -> Dict[str, Any]:
+    """
+    With the analysed lab report, provides the RO sizing from the companies database
+    """
+
+@tool("quotation_generator",args_schema=QuotationGeneratorInput)
+def quotation_generator(report: str) -> Dict[str, Any]:
+    """
+    With the analysed lab report and the RO sizing, gives the quotation for the customer
+    """
+
+@tool("proposal_generator",args_schema=ProposalGeneratorInput)
+def proposal_generator(report: str) -> Dict[str, Any]:
+    """
+    With the analysed lab report and the RO sizing, gives the proposal for the customer
+    """
+
+
+
 
 # Define tools
 @tool("get_pump_details", args_schema=PumpSearchInput)
@@ -119,143 +160,3 @@ def get_pump_details(model_name: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error in get_pump_details: {e}")
         return {"error": str(e)}
-
-@tool("get_weather", args_schema=WeatherInput)
-def get_weather(location: str) -> Dict[str, Any]:
-    """
-    Retrieves current weather data for a given location.
-    """
-    try:
-        # Simulate weather API call with mock data
-        weather_data = {
-            "nairobi": {
-                "temperature": 22,
-                "condition": "Partly Cloudy",
-                "humidity": 65,
-                "wind_speed": 12,
-                "location": "Nairobi, Kenya"
-            },
-            "mombasa": {
-                "temperature": 30,
-                "condition": "Sunny",
-                "humidity": 80,
-                "wind_speed": 15,
-                "location": "Mombasa, Kenya"
-            },
-            "kisumu": {
-                "temperature": 26,
-                "condition": "Light Rain",
-                "humidity": 75,
-                "wind_speed": 8,
-                "location": "Kisumu, Kenya"
-            }
-        }
-        
-        location_key = location.lower().replace(" ", "")
-        
-        if location_key in weather_data:
-            return weather_data[location_key]
-        else:
-            return {
-                "temperature": 25,
-                "condition": "Unknown",
-                "humidity": 70,
-                "wind_speed": 10,
-                "location": location
-            }
-    except Exception as e:
-        logger.error(f"Error in get_weather: {e}")
-        return {"error": str(e)}
-
-@tool("calculator", args_schema=CalculatorInput)
-def calculator(expression: str) -> Dict[str, Any]:
-    """
-    Evaluates a mathematical expression and returns the result.
-    """
-    try:
-        # For safety, we'll implement a simple calculator with basic operations
-        # In a real application, use a safer evaluation method
-        result = eval(expression, {"__builtins__": {}}, {})
-        return {
-            "expression": expression,
-            "result": result
-        }
-    except Exception as e:
-        logger.error(f"Error in calculator: {e}")
-        return {"error": f"Could not evaluate expression: {str(e)}"}
-
-@tool("unit_converter", args_schema=ConversionInput)
-def unit_converter(value: float, from_unit: str, to_unit: str) -> Dict[str, Any]:
-    """
-    Converts values between different units of measurement.
-    """
-    try:
-        # Define conversion factors
-        conversion_map = {
-            # Length
-            "meters_to_feet": 3.28084,
-            "feet_to_meters": 0.3048,
-            # Volume
-            "liters_to_gallons": 0.264172,
-            "gallons_to_liters": 3.78541,
-            # Weight
-            "kg_to_pounds": 2.20462,
-            "pounds_to_kg": 0.453592,
-            # Pressure
-            "bar_to_psi": 14.5038,
-            "psi_to_bar": 0.0689476,
-        }
-        
-        # Create the conversion key
-        conversion_key = f"{from_unit.lower()}_to_{to_unit.lower()}"
-        
-        if conversion_key in conversion_map:
-            result = value * conversion_map[conversion_key]
-            return {
-                "original_value": value,
-                "original_unit": from_unit,
-                "converted_value": result,
-                "target_unit": to_unit,
-                "conversion_factor": conversion_map[conversion_key]
-            }
-        else:
-            return {"error": f"Conversion from {from_unit} to {to_unit} is not supported."}
-    except Exception as e:
-        logger.error(f"Error in unit_converter: {e}")
-        return {"error": str(e)}
-
-
-
-@tool("analyse_lab_report", args_schema=AnalyseLabReportInput)
-def analyse_lab_report(report: str) -> Dict[str, Any]:
-    """
-    Take a lab report and analyze it to parse the data into a nice formart that the AI can analyse
-    """
-    # ocr
-
-@tool("treatment_recommendation", args_schema=TreatmentRecommendationInput)
-def treatment_recommendation(report: str) -> Dict[str, Any]:
-    """
-    Take a analysed lab report and provides a treatment recommendations
-    """
-
-
-@tool("RO Sizing", args_schema=ROSizingInput)
-def ro_sizing(report: str) -> Dict[str, Any]:
-    """
-    With the analysed lab report, provides the RO sizing from the companies database
-    """
-
-@tool("quotation_generator",args_schema=QuotationGeneratorInput)
-def quotation_generator(report: str) -> Dict[str, Any]:
-    """
-    With the analysed lab report and the RO sizing, gives the quotation for the customer
-    """
-
-@tool("proposal_generator",args_schema=ProposalGeneratorInput)
-def proposal_generator(report: str) -> Dict[str, Any]:
-    """
-    With the analysed lab report and the RO sizing, gives the proposal for the customer
-    """
-
-

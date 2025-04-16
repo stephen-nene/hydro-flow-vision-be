@@ -16,7 +16,7 @@ from langchain_core.runnables import RunnableConfig
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from tools import get_pump_details, get_weather, calculator, unit_converter, AgentState
+from tools import get_pump_details, AgentState
 
 from tools import analyse_lab_report,treatment_recommendation,ro_sizing,quotation_generator,proposal_generator
 
@@ -26,23 +26,8 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Collect all tools
-tools = [get_pump_details, get_weather, calculator, unit_converter]
+tools = [get_pump_details,analyse_lab_report,treatment_recommendation,ro_sizing,quotation_generator,proposal_generator ]
 tools_by_name = {tool.name: tool for tool in tools}
-
-# Initialize the LLM
-# llm = ChatOpenAI(
-#     # model="deepseek-ai/deepseek-r1",
-#     model='meta/llama-4-scout-17b-16e-instruct',
-#     # model="google/gemma-3-27b-it",
-#     temperature=0.3,  
-#     max_tokens=1024,
-#     timeout=30,
-# #   top_p=0.7,
-#     max_retries=3,
-#     api_key=config('NVIDIA_SECRET_KEY'),
-#     base_url="https://integrate.api.nvidia.com/v1",
-
-# )
 
 # Create LLM class
 llm = ChatGoogleGenerativeAI(

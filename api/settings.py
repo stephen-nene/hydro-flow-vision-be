@@ -97,8 +97,6 @@ REST_FRAMEWORK = {
        ),
    }
 
-
-
 # If you need to allow dynamic ports, use CORS_ALLOWED_ORIGIN_REGEXES instead:
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://localhost:\d+$",
@@ -115,9 +113,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:1420",
     'https://ds-purifier.onrender.com'  
 ]
+
 ALLOWED_HOSTS = ['ds-purifier.onrender.com', "localhost", "127.0.0.1"]
-
-
 
 ROOT_URLCONF = 'api.urls'
 

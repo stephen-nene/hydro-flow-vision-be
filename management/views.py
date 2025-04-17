@@ -13,8 +13,8 @@ from .models import *
 from .serializers import *
 from uuid import UUID
 
-from .AI.tools import format_customer_request_prompt,FormatCustomerRequestInput,CustomerRequestInput
-
+from .AI.tools import format_customer_request_prompt,format_customer_request_prompt2
+from .AI.mainai import run_agent
 
 import logging
 
@@ -558,12 +558,20 @@ class FormatCustomerRequestPromptView(APIView):
             }
        
 
-        result = format_customer_request_prompt.invoke(tool_input)
+        try:
+        
+            result = format_customer_request_prompt(tool_input)
+            agent_res = run_agent(result)
+            return Response({
+                "formatted_prompt": result,
+                "agent": agent_res,
+                # "debug_data": result["debug_data"],
+                "request_id": customer_request_id,
+                "guideline_id": guideline_id,
+                "ai_settings_used": ai_settings
+            }, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.error(f"Error in format_customer_request_prompt: {e}")
+            return Response({"error": "Failed to format customer request prompt"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return Response({
-            "formatted_prompt": result["formatted_prompt"],
-            "debug_data": result["debug_data"],
-            "request_id": customer_request_id,
-            "guideline_id": guideline_id,
-            "ai_settings_used": ai_settings
-        }, status=status.HTTP_200_OK)

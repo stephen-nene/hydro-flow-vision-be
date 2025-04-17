@@ -11,6 +11,56 @@ from django.conf import settings
 
 
 # Enums 
+
+
+class WaterUsageChoices(models.TextChoices):
+    # Domestic / Household
+    DOMESTIC = 'domestic', 'Domestic (Household Use)'
+    DRINKING = 'drinking', 'Drinking Water'
+    COOKING = 'cooking', 'Cooking'
+    BATHING = 'bathing', 'Bathing/Showering'
+    LAUNDRY = 'laundry', 'Laundry'
+    SANITATION = 'sanitation', 'Toilets/Sanitation'
+    
+    # Industrial / Commercial
+    INDUSTRIAL = 'industrial', 'Industrial'
+    COMMERCIAL = 'commercial', 'Commercial'
+    MANUFACTURING = 'manufacturing', 'Manufacturing'
+    COOLING = 'cooling', 'Cooling Systems'
+    PROCESSING = 'processing', 'Processing'
+
+    # Agricultural / Farming
+    AGRICULTURAL = 'agricultural', 'Agricultural'
+    IRRIGATION = 'irrigation', 'Irrigation'
+    AQUACULTURE = 'aquaculture', 'Aquaculture/Fish Farming'
+    LIVESTOCK = 'livestock', 'Livestock'
+
+    # Medical / Laboratory
+    MEDICAL = 'medical', 'Medical'
+    LABORATORY = 'laboratory', 'Laboratory'
+
+    # Bottled / Packaged
+    BOTTLING = 'bottling', 'Bottling / Packaged Water'
+    
+    # Municipal / Public
+    MUNICIPAL = 'municipal', 'Municipal Supply'
+    FIRE_PROTECTION = 'fire_protection', 'Fire Protection'
+    STREET_CLEANING = 'street_cleaning', 'Street Cleaning'
+
+    # Construction
+    CONSTRUCTION = 'construction', 'Construction'
+    
+    # Recreational
+    RECREATIONAL = 'recreational', 'Recreational (Pools, etc.)'
+
+    # Environmental / Ecological
+    ENVIRONMENTAL = 'environmental', 'Environmental / Ecosystem Use'
+    
+    # Misc
+    OTHER = 'other', 'Other'
+
+
+
 class DocumentType(models.TextChoices):
     WATER_ANALYSIS_REPORT = 'WAR', 'Water Analysis Report'
     TREATMENT_PLAN = 'TP', 'Treatment Plan'
@@ -66,7 +116,7 @@ class TimeStampedModel(models.Model):
 
 class WaterGuideline(BaseUUIDModel, TimeStampedModel):
     body =models.CharField(max_length=255) # WHO, KEBS, EPA, etc.
-    usage = models.CharField(max_length=255)  # e.g. "domestic", "bottling", "industrial"
+    usage = models.CharField(max_length=50,choices=WaterUsageChoices.choices)  # e.g. "domestic", "bottling", "industrial"
     description = models.TextField(blank=True, null=True, help_text="Detailed description of the guideline.")
     status =models.CharField(max_length=255,default='pending' , choices=[('pending', 'Pending'),('active', 'Active'), ('inactive', 'Inactive')])
     # physical Analysis
@@ -101,7 +151,7 @@ class CustomerRequest(BaseUUIDModel, TimeStampedModel):
     water_source = models.CharField(max_length=255)
     daily_water_requirement = models.PositiveIntegerField()
     daily_flow_rate = models.PositiveIntegerField()
-    water_usage = models.CharField(max_length=255)
+    water_usage = models.CharField(max_length=50, choices=WaterUsageChoices.choices)  # e.g. "domestic", "bottling", "industrial"
     site_location = models.JSONField(default=dict,max_length=255)
     extras = models.JSONField(default=dict)
     budjet = models.JSONField(default=dict)

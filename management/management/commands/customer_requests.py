@@ -4,7 +4,8 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from management.models import CustomerRequest, WaterLabReport, WaterLabParameter
 from profiles.models import UserRole
-from management.models import ReportSource, TestType
+from management.models import ReportSource, TestType, WaterUsageChoices
+
 
 User = get_user_model()
 
@@ -65,7 +66,7 @@ class Command(BaseCommand):
                 water_source=random.choice(['Borehole', 'River', 'Municipal', 'Rainwater']),
                 daily_water_requirement=random.randint(100, 500),
                 daily_flow_rate=random.randint(10, 50),
-                water_usage=random.choice(['Irrigation', 'Domestic', 'Industrial']),
+                water_usage=random.choice([choice.value for choice in WaterUsageChoices]),
                 site_location={
                     "name": location["name"],
                     "lat": location["lat"],

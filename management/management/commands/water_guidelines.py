@@ -1,6 +1,6 @@
 import random
 from django.core.management.base import BaseCommand
-from management.models import WaterGuideline, WaterGuidelineParameter
+from management.models import WaterGuideline, WaterGuidelineParameter, WaterUsageChoices
 from faker import Faker
 
 fake = Faker()
@@ -22,18 +22,7 @@ PARAMETER_POOL = {
 }
 
 # Regulatory bodies along with distinct usage categories.
-BODIES_USAGE = {
-    "WHO": ["drinking", "recreational", "domestic"],
-    "KEBS": ["bottling", "packaged", "municipal"],
-    "EPA": ["domestic", "industrial", "environmental"],
-    "EU Drinking Water Directive": ["drinking", "recreational", "institutional"],
-    "BIS": ["industrial", "agricultural", "domestic"],
-    "FAO": ["irrigation", "agricultural", "domestic"],
-    "Health Canada": ["drinking", "recreational", "environmental"],
-    "NSW Health": ["cleaning", "disinfection", "domestic"],
-    "SABS": ["construction", "municipal", "domestic"],
-    "ISO": ["general safety", "drinking", "industrial"],
-}
+REGULATORY_BODIES = ["WHO","KEBS","EPA","EU Drinking Water Directive", "BIS","FAO","Health Canada","NSW Health","SABS","ISO",]
 
 # Choices for guideline status.
 STATUS_CHOICES = ["active", "inactive"]
@@ -45,13 +34,16 @@ class Command(BaseCommand):
         total_guidelines = 0
         total_parameters = 0
         
-        for body, usages in BODIES_USAGE.items():
+        for body in REGULATORY_BODIES:
             self.stdout.write(f"Seeding guidelines for regulatory body: {body}")
-            for usage in usages:
-                # Create a water guideline with random description and status.
+               
+            num_usages = random.randint(3, 6)
+            chosen_usages = random.sample(WaterUsageChoices.choices, k=num_usages)
+
+            for usage_value, usage_label in chosen_usages:
                 guideline = WaterGuideline.objects.create(
                     body=body,
-                    usage=usage,
+                    usage=usage_value,
                     description=fake.paragraph(nb_sentences=5),
                     status=random.choice(STATUS_CHOICES)
                 )

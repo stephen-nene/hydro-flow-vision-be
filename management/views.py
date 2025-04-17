@@ -13,7 +13,7 @@ from .models import *
 from .serializers import *
 from uuid import UUID
 
-from .AI.tools import format_customer_request_prompt
+from .AI.tools import format_customer_request_prompt,FormatCustomerRequestInput,CustomerRequestInput
 
 
 import logging
@@ -442,77 +442,127 @@ class AiProcessCustomerRequest():
     
 logger = logging.getLogger(__name__)
 
+
 class FormatCustomerRequestPromptView(APIView):
     """
     View that formats a customer request using LLM to produce a structured, AI-ready prompt.
     """
-
     @swagger_auto_schema(
         operation_summary="Generate AI-ready prompt from customer request",
-        manual_parameters=[
-            openapi.Parameter(
-                'guideline_id',
-                openapi.IN_QUERY,
-                type=openapi.TYPE_STRING,
-                required=False,
-                description='Optional guideline ID to consider when formatting the customer request'
-            )
-        ],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['customer_request_id'],
+            properties={
+                'customer_request_id': openapi.Schema(type=openapi.TYPE_STRING, format='uuid'),
+                'guideline_id': openapi.Schema(type=openapi.TYPE_STRING),
+                'override_usage_check': openapi.Schema(type=openapi.TYPE_BOOLEAN, default=False),
+                'ai_settings': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'temperature': openapi.Schema(type=openapi.TYPE_NUMBER),
+                        'max_tokens': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    }
+                ),
+            }
+        ),
         responses={
             200: openapi.Response(description="Formatted prompt returned successfully"),
-            404: openapi.Response(description="Customer request not found"),
+            400: openapi.Response(description="Invalid input data"),
+            404: openapi.Response(description="Customer request or guideline not found"),
         },
-        tags=["Customer Request"]
+        tags=["Customer Request Initiator"]
     )
-    def get(self, request, request_id):
-        guideline_id = request.query_params.get('guideline_id')
-        if guideline_id:
-            print(f"Guideline ID received: {guideline_id}")
-            logger.debug(f"Guideline ID: {guideline_id}")
+    
+    def post(self, request):
+        # Validate required fields
+        customer_request_id = request.data.get('customer_request_id')
+        if not customer_request_id:
+            return Response({"error": "customer_request_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            request_obj = CustomerRequest.objects.get(id=request_id)
+            request_id = UUID(customer_request_id)
+        except ValueError:
+            return Response({"error": "Invalid customer_request_id format"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get optional parameters
+        guideline_id = request.data.get('guideline_id')
+        override_usage_check = request.data.get('override_usage_check', False)
+        ai_settings = request.data.get('ai_settings', {})
+
+        # Fetch customer request with optimized query
+        try:
+            request_obj = CustomerRequest.objects.select_related(
+                'customer'
+            ).prefetch_related(
+                'water_lab_reports__parameters',
+                'handlers'
+            ).get(id=request_id)
         except CustomerRequest.DoesNotExist:
             return Response({"error": "Customer request not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        water_params = []
-        for report in request_obj.water_lab_reports.all():
-            for param in report.parameters.all():
-                if isinstance(param, str):
-                    try:
-                        name, value = param.split(' - ')
-                        water_params.append({
-                            "name": name or "Unknown",
-                            "value": value or "N/A",
-                            "unit": "Unknown"
-                        })
-                    except ValueError:
-                        water_params.append({
-                            "name": param,
-                            "value": "N/A",
-                            "unit": "Unknown"
-                        })
-                else:
-                    water_params.append({
-                        "name": getattr(param, 'name', "Unknown"),
-                        "value": getattr(param, 'value', "N/A"),
-                        "unit": getattr(param, 'unit', "Unknown")
-                    })
+        # Fetch guideline if provided
+        guideline = None
+        if guideline_id:
+            try:
+                guideline = WaterGuideline.objects.prefetch_related('parameters').get(id=guideline_id)
+                
+                # Check usage compatibility unless overridden
+                if not override_usage_check and guideline.usage.lower() != request_obj.water_usage.lower():
+                    return Response({
+                        "error": f"Guideline usage ({guideline.usage}) doesn't match customer water usage ({request_obj.water_usage})",
+                        "solution": "Set override_usage_check=True to bypass this check"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                    
+            except WaterGuideline.DoesNotExist:
+                return Response({"error": "Guideline not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Prepare clean water parameters
+        water_params = [
+            {
+                "name": param.name,
+                "value": param.value,
+                "unit": param.unit
+            }
+            for report in request_obj.water_lab_reports.all()
+            for param in report.parameters.all()
+        ]
+
+        # Prepare guideline parameters if exists
+        guideline_params = None
+        if guideline:
+            guideline_params = [
+                {
+                    "name": param.name,
+                    "unit": param.unit,
+                    "min_value": param.min_value,
+                    "max_value": param.max_value
+                }
+                for param in guideline.parameters.all()
+            ]
+
+        # Build tool input
         tool_input = {
-            "customer_location": request_obj.site_location.get('name') if isinstance(request_obj.site_location, dict) else request_obj.site_location.name,
-            "water_source": request_obj.water_source,
-            "water_usage": request_obj.water_usage,
-            "daily_flow_rate": request_obj.daily_flow_rate,
-            "daily_water_requirement": request_obj.daily_water_requirement,
-            "budget_currency": request_obj.budjet.get("currency"),
-            "water_parameters": water_params,
-            "notes": request_obj.extras.get("notes", "No additional notes provided."),
-        }
+                "customer_request": {
+                    "location": request_obj.site_location.get('name') if isinstance(request_obj.site_location, dict) 
+                                else request_obj.site_location.name,
+                    "water_source": request_obj.water_source,
+                    "water_usage": request_obj.water_usage,
+                    "daily_flow_rate": request_obj.daily_flow_rate,
+                    # "daily_water_requirement": request_obj.daily_water_requirement,
+                    "budget": request_obj.budjet,
+                    "water_parameters": water_params,
+                    "notes": request_obj.extras.get("notes", "No additional notes provided."),
+                },
+                "guideline": guideline_params,
+                "ai_settings": ai_settings  # Keeping this for future use
+            }
+       
 
         result = format_customer_request_prompt.invoke(tool_input)
 
         return Response({
             "formatted_prompt": result["formatted_prompt"],
-            "request_id": str(request_id)
+            "request_id": customer_request_id,
+            "guideline_id": guideline_id,
+            "ai_settings_used": ai_settings
         }, status=status.HTTP_200_OK)

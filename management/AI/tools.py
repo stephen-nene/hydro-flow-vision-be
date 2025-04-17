@@ -24,9 +24,9 @@ llm2 = ChatOpenAI(
     # model="google/gemma-3-27b-it",
     temperature=0.3,  
     max_tokens=1024,
-    timeout=30,
+    timeout=None,
 #   top_p=0.7,
-    max_retries=3,
+    max_retries=2,
     api_key=config('NVIDIA_SECRET_KEY'),
     base_url="https://integrate.api.nvidia.com/v1",
 
@@ -110,135 +110,107 @@ class ProposalGeneratorInput(BaseModel):
 # @tool("formart customer request", args_schema=FormatCustomerRequestInput)
 @tool("format customer request")
 def format_customer_request_prompt(
-    customer_request: Dict,  # Water treatment parameters and requirements
-    guideline: Optional[List[Dict]] = None,  # Water quality guidelines/standards
-    ai_settings: Optional[Dict] = None  # LLM configuration parameters
+    customer_request: Dict,
+    guideline: Optional[List[Dict]] = None,
+    ai_settings: Optional[Dict] = None
 ) -> Dict:
     """
-    Generates a prompt for the Mother Agent that will coordinate water treatment solutions.
-    This function doesn't provide recommendations itself but prepares data for delegation.
+    Generates a *self-contained* system prompt where the Mother Agent performs ALL checks 
+    (parameter validation, usage matching) and follows explicit orchestration rules.
     """
     try:
 
 
-        # Process parameters and prepare data for the Mother Agent
-        location = customer_request.get('location', 'Unknown')
-        water_source = customer_request.get('water_source', 'Unknown')
-        water_usage = customer_request.get('water_usage', 'Unknown')
-        daily_flow_rate = customer_request.get('daily_flow_rate', 0)
-        budget = customer_request.get('budget', {})
-        budget_amount = budget.get('amount', 0)
-        budget_currency = budget.get('currency', 'KES')
-        notes = customer_request.get('notes', '')
-        
-        # Analyze water parameters against guidelines
-        water_params_status = []
-        if guideline and 'water_parameters' in customer_request:
-            for param in customer_request['water_parameters']:
-                param_name = param.get('name')
-                param_value = param.get('value')
-                param_unit = param.get('unit', '')
-                
-                # Find matching guideline
-                matching_guide = next((g for g in guideline if g.get('name') == param_name), None)
-                
-                if matching_guide:
-                    min_value = matching_guide.get('min_value')
-                    max_value = matching_guide.get('max_value')
-                    
-                    # Determine status
-                    status = "WITHIN RANGE"
-                    if param_value < min_value:
-                        status = "BELOW STANDARD"
-                    elif param_value > max_value:
-                        status = "ABOVE STANDARD"
-                    
-                    water_params_status.append({
-                        "name": param_name,
-                        "value": param_value,
-                        "unit": param_unit,
-                        "min_value": min_value,
-                        "max_value": max_value,
-                        "status": status
-                    })
-                else:
-                    water_params_status.append({
-                        "name": param_name,
-                        "value": param_value,
-                        "unit": param_unit,
-                        "status": "NO GUIDELINE"
-                    })
-
-        # Create the raw prompt for the Mother Agent
+        # --- RAW PROMPT (AI does all reasoning) ---
         raw_prompt = f"""
-        # MOTHER AGENT INSTRUCTION: WATER TREATMENT SYSTEM COORDINATION
-        
-        You are the Mother Agent responsible for coordinating a complete water treatment solution. Your task is to analyze the provided customer data and delegate specialized tasks to your team of expert agents. DO NOT attempt to provide treatment recommendations yourself - your role is coordination and delegation.
-        
-        ## CUSTOMER REQUEST DATA
-        - Location: {location}
-        - Water Source: {water_source}
-        - Water Usage Purpose: {water_usage}
-        - Daily Flow Rate: {daily_flow_rate} liters per day
-        - Budget: {budget_amount} {budget_currency}
-        - Additional Notes: {notes}
-        
-        ## WATER QUALITY PARAMETERS ANALYSIS
-        """
-        
-        # Add water parameters with status
-        for param in water_params_status:
-            if "min_value" in param:
-                raw_prompt += f"\n- {param['name']}: {param['value']} {param['unit']} (Standard: {param['min_value']} - {param['max_value']} {param['unit']}) - **{param['status']}**"
-            else:
-                raw_prompt += f"\n- {param['name']}: {param['value']} {param['unit']} - **{param['status']}**"
-        
-        raw_prompt += f"""
-        
-        ## AVAILABLE SPECIALIZED AGENTS
-        You have access to the following specialized agents that you must coordinate with:
-        
-        1. **Treatment Recommendation Agent**: Analyze water parameters and recommend appropriate treatment methods
-           - Input: Water parameters, usage requirements, location factors
-           - Output: Detailed treatment process recommendations
-        
-        2. **RO Sizing Agent**: Calculate reverse osmosis system specifications
-           - Input: Water parameters, daily flow rate, treatment requirements
-           - Output: RO system sizing and specifications
-        
-        3. **Quotation Generator Agent**: Produce accurate cost estimates
-           - Input: Treatment recommendations, RO sizing, customer budget constraints
-           - Output: Detailed quotation with item-by-item breakdown
-        
-        4. **Proposal Generator Agent**: Create customer-ready proposals
-           - Input: All previous agent outputs, customer requirements
-           - Output: Comprehensive treatment proposal document
-        
-        ## YOUR COORDINATION TASKS:
-        1. Review the water parameter analysis above and identify which parameters require treatment attention
-        2. Determine which specialized agents need to be activated based on the customer requirements
-        3. Prepare specific instructions for each agent you plan to activate
-        4. Create a workflow sequence for the agents, ensuring each has the inputs it needs
-        5. Do NOT attempt to provide technical recommendations or solutions yourself
-        
-        Proceed with your coordination role by analyzing the data and preparing instructions for your specialized agents.
-        """
-        
-        result = llm.invoke(raw_prompt)
-        
-        return {
-            "formatted_data": {
-                "customer_request": customer_request,
-                "guidelines": guideline,
-                "parameters_analysis": water_params_status
-            },
-            "formatted_prompt": result.content
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in format_customer_request_prompt: {e}")
-        raise
+        **TASK**: Generate a *detailed* system prompt for a Mother Agent that will:
+        1. Compare water parameters against guidelines *dynamically*
+        2. Detect usage mismatches
+        3. Delegate to sub-agents with strict rules
 
+            I have other tools (AI agents) that will handle further processing, i.e:
+             - **Treatment Recommendation**: Will provide detailed recommendations based on the lab analysis.
+             - **RO Sizing**: Will calculate the required size of the reverse osmosis system.
+             - **Quotation Generator**: Will generate a quotation based on the treatment and RO sizing data.
+             - **Proposal Generator**: Will generate a final proposal based on the overall system design.
+
+
+        **GUIDELINES** (for the Mother Agent to use):
+        ```python
+        guidelines = {guideline}  # Raw guideline data
+        ```
+
+        **CUSTOMER REQUEST** (for the Mother Agent to analyze):
+        ```python
+        {{
+            "location": "{customer_request['location']}",
+            "water_source": "{customer_request['water_source']}",
+            "water_usage": "{customer_request['water_usage']}",
+            "parameters": {customer_request["water_parameters"]},
+            "flow_rate": "{customer_request['daily_flow_rate']} m³/day"
+        }}
+        ```
+
+        **REQUIREMENTS FOR THE FINAL MOTHER AGENT PROMPT**:
+        - Must include ALL these sections:
+
+        ### 1. ROLE DEFINITION
+        - Clear statement: "You are an AI orchestrator for water treatment systems."
+        - List sub-agents: TreatmentRecommender, ROSizingCalculator,Quotation Generator, Proposal Generator etc.
+
+        ### 2. PARAMETER VALIDATION INSTRUCTIONS
+        - Step-by-step logic:
+          1. FIRST check if `water_usage` matches any guideline category.
+          2. For EACH parameter:
+             - Find matching guideline (name + usage).
+             - Compare value to min/max.
+             - Flag violations with severity (❌ CRITICAL/WARNING).
+             - Handle unit mismatches automatically (e.g., ppm ↔ mg/L).
+
+        ### 3. DELEGATION RULES
+        - Example:
+          ```markdown
+          if parameter violates guidelines:
+            - Send to TreatmentRecommender with:
+              - Parameter name
+              - Violation amount
+              - Severity level
+          ```
+
+        ### 4. ERROR HANDLING
+        - Explicit fallbacks:
+          ```markdown
+          if usage mismatch:
+            - Alert: "⚠️ GUIDELINE MISMATCH: Customer usage ({customer_request['water_usage']}) not in guidelines."
+            - Proceed with closest matching guideline.
+          if Missing Guideline:
+            - dont skip but use you NLp to find something relevant though flag it
+          ```
+
+        ### 5. OUTPUT FORMAT
+        - Demand structured Markdown:
+          ```markdown
+          ## Analysis Report
+          - **Violations**: [list]
+          - **Next Steps**: [sub-agent calls]
+          ```
+        """
+
+        # Generate the Mother Agent's prompt
+        result = llm.invoke(raw_prompt)
+
+        return {
+            "formatted_prompt": result.content,
+            "debug_data": {
+                "guideline_provided": bool(guideline),
+                "customer_usage": customer_request["water_usage"],
+                "guideline_usage": guideline[0]["usage"] if guideline else None,
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Prompt generation failed: {str(e)}")
+        raise
 
         # Raw and formatted prompts for the AI
             # Budget: {budget_amount} {budget_currency}

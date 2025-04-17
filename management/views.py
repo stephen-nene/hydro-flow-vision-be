@@ -562,6 +562,7 @@ class FormatCustomerRequestPromptView(APIView):
 
         return Response({
             "formatted_prompt": result["formatted_prompt"],
+            "debug_data": result["debug_data"],
             "request_id": customer_request_id,
             "guideline_id": guideline_id,
             "ai_settings_used": ai_settings

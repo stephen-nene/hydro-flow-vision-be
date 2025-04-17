@@ -1,7 +1,8 @@
 import os
 from dotenv import load_dotenv
-from typing import Annotated, Sequence, TypedDict, Dict, Any, List, Optional
+from typing import Annotated, Sequence, TypedDict, Dict, Any, List, Optional,Union
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage, SystemMessage
+from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph.message import add_messages
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
@@ -57,16 +58,35 @@ class AgentState(TypedDict):
 class PumpSearchInput(BaseModel):
     model_name: str = Field(description="The model name of the pump to search for")
 
-class FormatCustomerRequestInput(BaseModel):
-    customer_location: str
+class WaterParameter(BaseModel):
+    name: str
+    value: Optional[float]
+    unit: Optional[str]
+
+
+class GuidelineParameter(BaseModel):
+    name: str
+    unit: Optional[str]
+    min_value: Optional[float]
+    max_value: Optional[float]
+
+
+class CustomerRequestInput(BaseModel):
+    location: str
     water_source: str
     water_usage: str
-    daily_flow_rate: float
-    daily_water_requirement: float
-    # budget_amount: float
-    # budget_currency: str
-    water_parameters: list
-    notes: str = "No extra notes provided."
+    daily_flow_rate: int
+    budget: Dict[str, Union[int, float, str]]
+    water_parameters: List[WaterParameter]
+    notes: Optional[str] = "No additional notes provided."
+
+
+class FormatCustomerRequestInput(BaseModel):
+    customer_request: CustomerRequestInput
+    guideline: Optional[List[GuidelineParameter]]
+    ai_settings: Optional[Dict[str, Union[str, float, int, bool]]] = {}
+
+
 class AnalyseLabReportInput(BaseModel):
     # it will be a documnet/cvc of the lab results
     text: str = Field(description="Text to analyze")
@@ -87,134 +107,195 @@ class ProposalGeneratorInput(BaseModel):
     # it will be a documnet/cvc of the lab results
     text: str = Field(description="Text to analyze")
 
-@tool("formart customer request", args_schema=FormatCustomerRequestInput)
-def format_customer_request_prompt(    
-    customer_location: str,
-    water_source: str,
-    water_usage: str,
-    daily_flow_rate: float,
-    daily_water_requirement: float,
-    # budget_amount: float,
-    # budget_currency: str,
-    water_parameters: List[Dict[str, Any]],
-    notes: str = "No extra notes provided."
-) -> Dict[str, Any]:
+# @tool("formart customer request", args_schema=FormatCustomerRequestInput)
+@tool("format customer request")
+def format_customer_request_prompt(
+    customer_request: Dict,  # Water treatment parameters and requirements
+    guideline: Optional[List[Dict]] = None,  # Water quality guidelines/standards
+    ai_settings: Optional[Dict] = None  # LLM configuration parameters
+) -> Dict:
     """
-    Take a customer request and format it into a nice format that the AI can understand.
+    Generates a prompt for the Mother Agent that will coordinate water treatment solutions.
+    This function doesn't provide recommendations itself but prepares data for delegation.
     """
-    water_details = "\n".join([
-        f"- {p['name']}: {p['value']} {p['unit']}" for p in water_parameters
-    ])
-
-    # Raw and formatted prompts for the AI
-        # Budget: {budget_amount} {budget_currency}
-        # Daily Flow Rate: {daily_flow_rate} L/day
-    raw_prompt = f"""
-        You are preparing a technical brief for a customer water treatment request.
-
-    This summary will be used as the first step in an automated process where other AI models and tools will handle specific tasks such as RO sizing, treatment recommendations, and cost estimation.
-
-    Your role is to:
-    - **Analyze the provided lab report** and create a human-readable project initiation summary.
-    - **Do not recommend treatments** or suggest RO sizing, as these will be handled by other specialized tools later in the process.
-    - **Focus on presenting key aspects** relevant to system sizing, pretreatment, and costing in a clear, accessible way for downstream tools.
-
-    I have other tools that will handle further processing, t i.e:
-    - **Treatment Recommendation**: Will provide detailed recommendations based on the lab analysis.
-    - **RO Sizing**: Will calculate the required size of the reverse osmosis system.
-    - **Quotation Generator**: Will generate a quotation based on the treatment and RO sizing data.
-    - **Proposal Generator**: Will generate a final proposal based on the overall system design.
-
-    Begin by generating a summary in markdown format that presents the water quality parameters and any key observations relevant for system sizing and pretreatment. Highlight any unusual values and make sure the summary is clear and technical, but easy to understand.
-        Use the following details to create a professional project initiation summary that will be used in an automated design and proposal generation process for a reverse osmosis (RO) system.
+    try:
 
 
-        Location: {customer_location}
-        Water Source: {water_source}
-        Usage: {water_usage}
-        Daily Requirement: {daily_water_requirement} L/day
-        Notes: {notes}
-
-        Water lab parameters:
-        {water_details}
-
-        **Important Notes:**
-        - Do not recommend RO sizing or specific treatment options (e.g., filtration, dechlorination, etc.) as these will be handled by other specialized AI models and agents.
-        - Do not generate a quotation or proposal. These will be generated by the **quotation_generator** and **proposal_generator** tools.
-        - Focus on creating a clean, human-readable **project initiation summary** in **markdown format** to kickstart the design and proposal process.
-        - Include context on system sizing, pretreatment considerations, and potential costing factors without making specific recommendations.
-
-        Your task is to provide a clear and concise summary that will be used by the subsequent tools to continue the process. Highlight any values in the water analysis that are unusual or require attention, and maintain a professional, easy-to-understand tone.
-    """.strip()
-
-    #     **Notes**: Please ensure that all values are checked against the acceptable guidelines and highlight any discrepancies.
-
-    # Make sure to highlight any values that are outside the acceptable range, as these will be important for the downstream tools to address. The goal is to prepare the data in a clean, readable format for the subsequent processing steps.
-
-    # raw_prompt = f"""
-    #     You are preparing a technical brief for a customer water treatment request. 
-    #     Use the following details to create a professional project initiation summary that will be used in an automated design and proposal generation process for a reverse osmosis (RO) system.
-
-    #     **Location**: {customer_location}
-    #     **Water Source**: {water_source}
-    #     **Usage**: {water_usage}
-    #     **Daily Requirement**: {daily_water_requirement} L/day
-    #     **Notes**: {notes}
-
-    #     **Water Lab Parameters**: 
-    #     {water_details}
-
-    #     Your role:
-    #     - Analyze the provided water quality parameters to create a clean, actionable summary in markdown format.
-    #     - Highlight any unusual values or parameters that may require special attention during design (like turbidity, iron, chlorine, etc.).
-    #     - **Do not** provide treatment recommendations, RO sizing, or pricing as these will be handled by other AI models and tools.
-    #     - Focus on generating a professional, human-readable summary of the request that can be used by other tools downstream (like RO Sizing, Treatment Recommendations, etc.).
-    #     - Ensure that the summary is clear and technical but accessible, pointing out any anomalies and considerations for system sizing, pretreatment, and costing.
-
-    #     The following parameters are provided for you to review and analyze:
-    #     {{"Lead": "{lead_min} to {lead_max} mg/L",
-    #     "Alkalinity": "{alkalinity_min} to {alkalinity_max} mg/L",
-    #     "pH": "{ph_min} to {ph_max}",
-    #     "Sodium": "{sodium_min} to {sodium_max} mg/L",
-    #     "Hardness": "{hardness_min} to {hardness_max} mg/L",
-    #     "TDS": "{tds_min} to {tds_max} mg/L",
-    #     "Fluoride": "{fluoride_min} to {fluoride_max} mg/L",
-    #     "Chlorine": "{chlorine_min} to {chlorine_max} mg/L",
-    #     "Iron": "{iron_min} to {iron_max} mg/L",
-    #     "Nitrate": "{nitrate_min} to {nitrate_max} mg/L",
-    #     "Electrical Conductivity": "{conductivity_min} to {conductivity_max} μS/cm"}}
+        # Process parameters and prepare data for the Mother Agent
+        location = customer_request.get('location', 'Unknown')
+        water_source = customer_request.get('water_source', 'Unknown')
+        water_usage = customer_request.get('water_usage', 'Unknown')
+        daily_flow_rate = customer_request.get('daily_flow_rate', 0)
+        budget = customer_request.get('budget', {})
+        budget_amount = budget.get('amount', 0)
+        budget_currency = budget.get('currency', 'KES')
+        notes = customer_request.get('notes', '')
         
-    #     **Key Areas to Address**:
-    #     - Pretreatment needs: Filter out any unusual values (e.g., high turbidity, chlorine, iron) and highlight potential pretreatment steps.
-    #     - Water Quality Issues: Point out any parameters that fall outside the recommended ranges (e.g., lead, fluoride, nitrate).
-    #     - System Sizing: The system should be sized to meet the daily water demand based on the provided water source capacity.
+        # Analyze water parameters against guidelines
+        water_params_status = []
+        if guideline and 'water_parameters' in customer_request:
+            for param in customer_request['water_parameters']:
+                param_name = param.get('name')
+                param_value = param.get('value')
+                param_unit = param.get('unit', '')
+                
+                # Find matching guideline
+                matching_guide = next((g for g in guideline if g.get('name') == param_name), None)
+                
+                if matching_guide:
+                    min_value = matching_guide.get('min_value')
+                    max_value = matching_guide.get('max_value')
+                    
+                    # Determine status
+                    status = "WITHIN RANGE"
+                    if param_value < min_value:
+                        status = "BELOW STANDARD"
+                    elif param_value > max_value:
+                        status = "ABOVE STANDARD"
+                    
+                    water_params_status.append({
+                        "name": param_name,
+                        "value": param_value,
+                        "unit": param_unit,
+                        "min_value": min_value,
+                        "max_value": max_value,
+                        "status": status
+                    })
+                else:
+                    water_params_status.append({
+                        "name": param_name,
+                        "value": param_value,
+                        "unit": param_unit,
+                        "status": "NO GUIDELINE"
+                    })
 
-    #     Make sure the information is ready for further processing by subsequent tools (such as RO Sizing, Treatment Recommendation, Quotation Generator, and Proposal Generator).
-    # """.strip()
+        # Create the raw prompt for the Mother Agent
+        raw_prompt = f"""
+        # MOTHER AGENT INSTRUCTION: WATER TREATMENT SYSTEM COORDINATION
+        
+        You are the Mother Agent responsible for coordinating a complete water treatment solution. Your task is to analyze the provided customer data and delegate specialized tasks to your team of expert agents. DO NOT attempt to provide treatment recommendations yourself - your role is coordination and delegation.
+        
+        ## CUSTOMER REQUEST DATA
+        - Location: {location}
+        - Water Source: {water_source}
+        - Water Usage Purpose: {water_usage}
+        - Daily Flow Rate: {daily_flow_rate} liters per day
+        - Budget: {budget_amount} {budget_currency}
+        - Additional Notes: {notes}
+        
+        ## WATER QUALITY PARAMETERS ANALYSIS
+        """
+        
+        # Add water parameters with status
+        for param in water_params_status:
+            if "min_value" in param:
+                raw_prompt += f"\n- {param['name']}: {param['value']} {param['unit']} (Standard: {param['min_value']} - {param['max_value']} {param['unit']}) - **{param['status']}**"
+            else:
+                raw_prompt += f"\n- {param['name']}: {param['value']} {param['unit']} - **{param['status']}**"
+        
+        raw_prompt += f"""
+        
+        ## AVAILABLE SPECIALIZED AGENTS
+        You have access to the following specialized agents that you must coordinate with:
+        
+        1. **Treatment Recommendation Agent**: Analyze water parameters and recommend appropriate treatment methods
+           - Input: Water parameters, usage requirements, location factors
+           - Output: Detailed treatment process recommendations
+        
+        2. **RO Sizing Agent**: Calculate reverse osmosis system specifications
+           - Input: Water parameters, daily flow rate, treatment requirements
+           - Output: RO system sizing and specifications
+        
+        3. **Quotation Generator Agent**: Produce accurate cost estimates
+           - Input: Treatment recommendations, RO sizing, customer budget constraints
+           - Output: Detailed quotation with item-by-item breakdown
+        
+        4. **Proposal Generator Agent**: Create customer-ready proposals
+           - Input: All previous agent outputs, customer requirements
+           - Output: Comprehensive treatment proposal document
+        
+        ## YOUR COORDINATION TASKS:
+        1. Review the water parameter analysis above and identify which parameters require treatment attention
+        2. Determine which specialized agents need to be activated based on the customer requirements
+        3. Prepare specific instructions for each agent you plan to activate
+        4. Create a workflow sequence for the agents, ensuring each has the inputs it needs
+        5. Do NOT attempt to provide technical recommendations or solutions yourself
+        
+        Proceed with your coordination role by analyzing the data and preparing instructions for your specialized agents.
+        """
+        
+        result = llm.invoke(raw_prompt)
+        
+        return {
+            "formatted_data": {
+                "customer_request": customer_request,
+                "guidelines": guideline,
+                "parameters_analysis": water_params_status
+            },
+            "formatted_prompt": result.content
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in format_customer_request_prompt: {e}")
+        raise
 
-    #         Generate a natural-sounding, human-readable summary of this request in **markdown format**.
-    # Focus on system sizing, pretreatment, and costing. Highlight any unusual values and keep the tone clean, technical, and easy to understand.
-    # Use appropriate markdown elements such as headings, bullet points, and paragraphs.
 
-        # Their budget is {budget_amount} {budget_currency}.
-    prompt = f"""
-        We received a water treatment request from a client located in {customer_location}.
-        They are using {water_source} water for {water_usage}, and require approximately {daily_water_requirement} L/day at a flow rate of {daily_flow_rate} L/hr.
+        # Raw and formatted prompts for the AI
+            # Budget: {budget_amount} {budget_currency}
+            # Daily Flow Rate: {daily_flow_rate} L/day
+        # raw_prompt = f"""
+        #         You are preparing a technical brief for a customer water treatment request.
 
-        The client provided a water analysis report with the following parameters:
-        {water_details}
+        #     This summary will be used as the first step in an automated process where other AI models and tools will handle specific tasks such as RO sizing, treatment recommendations, and cost estimation.
 
-        Notes from the client: "{notes}"
+        #     Your role is to:
+        #     - **Analyze the provided lab report** and create a human-readable project initiation summary/prompt that will be used to initiate an agentic system for water purification.
+        #     - **Do not recommend treatments** or suggest RO sizing, as these will be handled by other specialized tools later in the process.
+        #     - **Focus on presenting key aspects** relevant to system sizing, pretreatment, and costing in a clear, accessible way for downstream tools.
 
-        Begin by analyzing this lab report for treatment recommendations.
-        Consider pretreatment, RO sizing, chemical dosing, and prepare to generate a complete water treatment proposal.
-    """.strip()
+        #     I have other tools (AI agents) that will handle further processing, i.e:
+        #     - **Treatment Recommendation**: Will provide detailed recommendations based on the lab analysis.
+        #     - **RO Sizing**: Will calculate the required size of the reverse osmosis system.
+        #     - **Quotation Generator**: Will generate a quotation based on the treatment and RO sizing data.
+        #     - **Proposal Generator**: Will generate a final proposal based on the overall system design.
 
-    result = llm.invoke(raw_prompt)
+        #     Begin by generating a summary in markdown format that presents the water quality parameters and any key observations relevant for system sizing and pretreatment. Highlight any unusual values and make sure the summary is clear and technical, but easy to understand.
+        #         Use the following details to create a professional project initiation summary that will be used in an automated design and proposal generation process for a reverse osmosis (RO) system.
 
-    return {
-        "formatted_prompt": result.content
-    }
+
+        #         Location: {customer_location}
+        #         Water Source: {water_source}
+        #         Usage: {water_usage}        - Include context on system sizing, pretreatment considerations, and potential costing factors without making specific recommendations.
+
+        #         Daily Requirement: {daily_water_requirement} L/day
+        #         Notes: {notes}
+
+        #         Water lab parameters:
+        #         {water_details}
+
+        #         **Important Notes:**
+        #         - Do not recommend RO sizing or specific treatment options (e.g., filtration, dechlorination, etc.) as these will be handled by other specialized AI models and agents.
+        #         - Do not generate a quotation or proposal. These will be generated by the **quotation_generator** and **proposal_generator** tools.
+        #         - Focus on creating a clean, human-readable **project initiation summary** in **markdown format** to kickstart the fully automated agents.
+
+        #         Your task is to provide a clear and concise summary that will be used to iniatite an agentic system. Highlight any values in the water analysis that are unusual or require attention, and maintain a professional, easy-to-understand tone.
+        #     """.strip()
+        
+        # prompt = f"""
+        #     We received a water treatment request from a client located in {customer_location}.
+        #     They are using {water_source} water for {water_usage}, and require approximatelywater at a flow rate of {daily_flow_rate} L/hr.
+
+        #     The client provided a water analysis report with the following parameters:
+        #     {water_details}
+
+        #     Notes from the client: "{notes}"
+
+        #     Begin by analyzing this lab report for treatment recommendations.
+        #     Consider pretreatment, RO sizing, chemical dosing, and ptreatmentrepare to generate a complete water  proposal.
+        # """.strip()
+
+
+
 
 
 

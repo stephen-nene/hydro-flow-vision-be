@@ -19,7 +19,7 @@ import base64
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from ..management.pdfs.gen import generate_quotation_pdf
+from management.pdfs.gen import generate_quotation_pdf
 
 # Initialize the LLM
 llm2 = ChatOpenAI(
@@ -84,16 +84,36 @@ class CustomerRequestInput(BaseModel):
     water_parameters: List[WaterParameter]
     notes: Optional[str] = "No additional notes provided."
 
-class AnalyseLabReportInput(BaseModel):
+
+class FormatCustomerRequestInput(BaseModel):
     customer_request: CustomerRequestInput
     guideline: Optional[List[GuidelineParameter]]
+    ai_settings: Optional[Dict[str, Union[str, float, int, bool]]] = {}
+
+
+class AnalyseLabReportInput(BaseModel):
+    # it will be a documnet/cvc of the lab results
+    text: str = Field(description="Text to analyze")
+
+class TreatmentRecommendationInput(BaseModel):
+    # it will be a documnet/cvc of the lab results
+    text: str = Field(description="Text to analyze")
+
+class ROSizingInput(BaseModel):
+    # it will be a documnet/cvc of the lab results
+    text: str = Field(description="Text to analyze")
+
+class QuotationGeneratorInput(BaseModel):
+    # it will be a documnet/cvc of the lab results
+    text: str = Field(description="Text to analyze")
+
+class ProposalGeneratorInput(BaseModel):
+    # it will be a documnet/cvc of the lab results
+    text: str = Field(description="Text to analyze")
 
 
 
-
-
-@tool("analyse_lab_report", args_schema=AnalyseLabReportInput)
-def analyse_lab_report(
+def format_customer_request_prompt(
     customer_request: Dict,
     guideline: Optional[List[Dict]] = None,
     ai_settings: Optional[Dict] = None
@@ -173,6 +193,36 @@ def analyse_lab_report(
 
 
 
+
+@tool("analyse_lab_report", args_schema=AnalyseLabReportInput)
+def analyse_lab_report(report: str) -> Dict[str, Any]:
+    """
+    Analyzes a water lab report and extracts key parameters in structured format.
+    """
+    try:
+        prompt = f"""
+        Analyze this water lab report and extract key parameters in JSON format:
+        {report}
+        
+        Return format:
+        {{
+            "parameters": [
+                {{
+                    "name": "parameter_name",
+                    "value": number,
+                    "unit": "measurement_unit",
+                    "status": "within_limits|exceeds_limits"
+                }}
+            ],
+            "summary": "brief_quality_assessment"
+        }}
+        """
+        response = llm.invoke(prompt)
+        return json.loads(response.content)
+    except Exception as e:
+        logger.error(f"Error analyzing lab report: {e}")
+        return {"error": str(e)}
+
 @tool("treatment_recommendation", args_schema=TreatmentRecommendationInput)
 def treatment_recommendation(text: str) -> Dict[str, Any]:
     """
@@ -223,8 +273,8 @@ def ro_sizing(text: str) -> Dict[str, Any]:
         logger.error(f"Error calculating RO sizing: {e}")
         return {"error": str(e)}
 
-@tool("quotation_generator", args_schema=QuotationGeneratorInput)
-def quotation_generator(report: str) -> Dict[str, Any]:
+@tool("quotation_generator2", args_schema=QuotationGeneratorInput)
+def quotation_generator2(report: str) -> Dict[str, Any]:
     """
     Generates a detailed quotation based on analyzed lab report and RO sizing data.
     Includes equipment list, pricing, warranties, and payment terms.
@@ -302,6 +352,79 @@ def quotation_generator(report: str) -> Dict[str, Any]:
         logger.error(f"Quotation generation failed: {str(e)}")
         return {"error": f"Quotation generation failed: {str(e)}"}
     
+@tool("quotation_generator", args_schema=QuotationGeneratorInput)
+def quotation_generator(report: str) -> Dict[str, Any]:
+    """
+    Generates a complete quotation with PDF output based on analyzed lab report and RO sizing.
+    """
+    try:
+        # Parse input
+        report_data = json.loads(report) if isinstance(report, str) else report
+        
+        # Generate content using AI
+        prompt = f"""Generate a detailed quotation including:
+        - Equipment list with models and specifications
+        - Pricing breakdown in KES
+        - Installation costs
+        - Maintenance package options
+        
+        Based on this data: {json.dumps(report_data, indent=2)}
+        """
+        
+        ai_response = llm.invoke(prompt)
+        quotation_content = ai_response.content
+        
+        # Extract structured data
+        data_prompt = f"""Extract from this quotation:
+        {quotation_content}
+        
+        Return JSON with:
+        - client_name
+        - project_summary
+        - equipment_items (array with name, model, quantity, unit_price)
+        - total_amount
+        - timeline
+        """
+        
+        structured_data = json.loads(llm.invoke(data_prompt).content)
+        
+        # Generate equipment table
+        equipment_table = "| Item | Model | Qty | Unit Price | Total |\n|------|-------|-----|------------|-------|\n"
+        for item in structured_data['equipment_items']:
+            total = item['quantity'] * item['unit_price']
+            equipment_table += f"| {item['name']} | {item['model']} | {item['quantity']} | KES {item['unit_price']:,} | KES {total:,} |\n"
+        
+        # Prepare PDF data
+        pdf_data = {
+            "client_name": structured_data.get('client_name', report_data.get('customer_name', 'Client')),
+            "project_summary": structured_data.get('project_summary', 'Water Treatment System'),
+            "equipment_table": equipment_table,
+            "timeline": structured_data.get('timeline', '3-4 weeks'),
+            "metadata": {
+                "source_data": report_data,
+                "generated_at": datetime.now().isoformat()
+            }
+        }
+        
+        # Generate PDF
+        pdf_result = generate_quotation_pdf(pdf_data)
+        # Save the PDF
+        if 'pdf_base64' in pdf_result:
+            with open('quotation.pdf', 'wb') as f:
+                f.write(base64.b64decode(pdf_result['pdf_base64']))
+        
+        return {
+            "quotation_id": pdf_result['quotation_id'],
+            "pdf_base64": pdf_result['pdf_base64'],
+            "text_content": quotation_content,
+            "structured_data": structured_data,
+            "metadata": pdf_data['metadata']
+        }
+        
+    except Exception as e:
+        logger.error(f"Quotation generation failed: {str(e)}")
+        return {"error": str(e)}
+
 @tool("proposal_generator", args_schema=ProposalGeneratorInput)
 def proposal_generator(report: str) -> Dict[str, Any]:
     """
@@ -452,4 +575,121 @@ def get_pump_details(model_name: str) -> Dict[str, Any]:
         logger.error(f"Error in get_pump_details: {e}")
         return {"error": str(e)}
     
+
+# @tool("formart customer request", args_schema=FormatCustomerRequestInput)
+@tool("format customer request")
+def format_customer_request_prompt2(
+    customer_request: Dict,
+    guideline: Optional[List[Dict]] = None,
+    ai_settings: Optional[Dict] = None
+) -> Dict:
+    """
+    Generates a *self-contained* system prompt where the Mother Agent performs ALL checks 
+    (parameter validation, usage matching) and follows explicit orchestration rules.
+    """
+    try:
+
+
+        # --- RAW PROMPT (AI does all reasoning) ---
+        raw_prompt = f"""
+        **TASK**: Generate a *detailed* system data analysis with these data so that i can this to my ai mother agent
+                 You are preparing a technical brief for a customer water treatment request.
+
+             This summary will be used as the first step in an automated process where other AI models and tools will handle specific tasks such as RO sizing, treatment recommendations, and cost estimation.
+             Your role is to:
+             - **Analyze the provided lab report** and create a human-readable project initiation summary/prompt that will be used to initiate an agentic system for water purification.
+             - **Do not recommend treatments** or suggest RO sizing, as these will be handled by other specialized tools later in the process.
+             - **Focus on presenting key aspects** relevant to system sizing, pretreatment, and costing in a clear, accessible way for downstream tools.
+
+
+        **GUIDELINES** (for the Mother Agent to use):
+        ```python
+        guidelines = {guideline}  # Raw guideline data
+        ```
+
+        **CUSTOMER REQUEST** (for the Mother Agent to analyze):
+        ```python
+        {{
+            "location": "{customer_request['location']}",
+            "water_source": "{customer_request['water_source']}",
+            "water_usage": "{customer_request['water_usage']}",
+            "parameters": {customer_request["water_parameters"]},
+            "flow_rate": "{customer_request['daily_flow_rate']} m³/day"
+        }}
+        ```
+
+
+
+          ```
+        """
+
+        # Generate the Mother Agent's prompt
+        result = llm.invoke(raw_prompt)
+
+        return {
+            "formatted_prompt": result.content,
+            "debug_data": {
+                "guideline_provided": bool(guideline),
+                "customer_usage": customer_request["water_usage"],
+                # "guideline_usage": guideline["usage"] if guideline else None,
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Prompt generation failed: {str(e)}")
+        raise
+
+        # Raw and formatted prompts for the AI
+            # Budget: {budget_amount} {budget_currency}
+            # Daily Flow Rate: {daily_flow_rate} L/day
+        # raw_prompt = f"""
+        #         You are preparing a technical brief for a customer water treatment request.
+
+        #     This summary will be used as the first step in an automated process where other AI models and tools will handle specific tasks such as RO sizing, treatment recommendations, and cost estimation.
+
+        #     Your role is to:
+        #     - **Analyze the provided lab report** and create a human-readable project initiation summary/prompt that will be used to initiate an agentic system for water purification.
+        #     - **Do not recommend treatments** or suggest RO sizing, as these will be handled by other specialized tools later in the process.
+        #     - **Focus on presenting key aspects** relevant to system sizing, pretreatment, and costing in a clear, accessible way for downstream tools.
+
+        #     I have other tools (AI agents) that will handle further processing, i.e:
+        #     - **Treatment Recommendation**: Will provide detailed recommendations based on the lab analysis.
+        #     - **RO Sizing**: Will calculate the required size of the reverse osmosis system.
+        #     - **Quotation Generator**: Will generate a quotation based on the treatment and RO sizing data.
+        #     - **Proposal Generator**: Will generate a final proposal based on the overall system design.
+
+        #     Begin by generating a summary in markdown format that presents the water quality parameters and any key observations relevant for system sizing and pretreatment. Highlight any unusual values and make sure the summary is clear and technical, but easy to understand.
+        #         Use the following details to create a professional project initiation summary that will be used in an automated design and proposal generation process for a reverse osmosis (RO) system.
+
+
+        #         Location: {customer_location}
+        #         Water Source: {water_source}
+        #         Usage: {water_usage}        - Include context on system sizing, pretreatment considerations, and potential costing factors without making specific recommendations.
+
+        #         Daily Requirement: {daily_water_requirement} L/day
+        #         Notes: {notes}
+
+        #         Water lab parameters:
+        #         {water_details}
+
+        #         **Important Notes:**
+        #         - Do not recommend RO sizing or specific treatment options (e.g., filtration, dechlorination, etc.) as these will be handled by other specialized AI models and agents.
+        #         - Do not generate a quotation or proposal. These will be generated by the **quotation_generator** and **proposal_generator** tools.
+        #         - Focus on creating a clean, human-readable **project initiation summary** in **markdown format** to kickstart the fully automated agents.
+
+        #         Your task is to provide a clear and concise summary that will be used to iniatite an agentic system. Highlight any values in the water analysis that are unusual or require attention, and maintain a professional, easy-to-understand tone.
+        #     """.strip()
+        
+        # prompt = f"""
+        #     We received a water treatment request from a client located in {customer_location}.
+        #     They are using {water_source} water for {water_usage}, and require approximatelywater at a flow rate of {daily_flow_rate} L/hr.
+
+        #     The client provided a water analysis report with the following parameters:
+        #     {water_details}
+
+        #     Notes from the client: "{notes}"
+
+        #     Begin by analyzing this lab report for treatment recommendations.
+        #     Consider pretreatment, RO sizing, chemical dosing, and ptreatmentrepare to generate a complete water  proposal.
+        # """.strip()
 

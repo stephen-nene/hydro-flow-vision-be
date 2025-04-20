@@ -176,7 +176,7 @@ def analyse_lab_report2(customer_request: dict, guideline: dict) -> dict:
     result = llm.invoke(prompt)
     return WaterAnalysisOutput(
         treatment_specs={}, 
-        parameter_violations=result
+        parameter_violations=result["content"]
     ).model_dump()
     # return result.dict()
 
@@ -214,30 +214,27 @@ def analyse_lab_report(customer_request: dict, guideline: dict) -> dict:
     }
 
 
-
-
-
 @tool(args_schema=TreatmentRecommendationInput)
 def treatment_recommendation(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Recommends treatment systems based on parameter violations and customer needs"""
     parameter_violations = input_data.get("parameter_violations", {})
     customer_request = input_data.get("customer_request", {})
     prompt = f"""
-You are a water treatment system design expert. Based on the data below, recommend:
+        You are a water treatment system design expert. Based on the data below, recommend:
 
-1. An RO system specification (type, capacity, and key components)
-2. A pretreatment plan (filtration method and required chemical adjustments)
+        1. An RO system specification (type, capacity, and key components)
+        2. A pretreatment plan (filtration method and required chemical adjustments)
 
-Input Data:
-- Treatment specs (violated parameters): {json.dumps(parameter_violations, indent=2)}
-- Customer request (usage, daily flow rate,  etc.): {json.dumps(customer_request, indent=2)}
-Write only the final Markdown output. Do not include JSON, commentary, or additional explanations. 
-"""
-# Return JSON matching this exact format:
-# {json.dumps({
-#     "ro_system_specs": {"type": "string", "capacity": "string", "components": ["string"]},
-#     "pretreatment": {"filtration": "string", "chemical_adjustments": ["string"]}
-# }, indent=2)}
+        Input Data:
+        - Treatment specs (violated parameters): {json.dumps(parameter_violations, indent=2)}
+        - Customer request (usage, daily flow rate,  etc.): {json.dumps(customer_request, indent=2)}
+        Write only the final Markdown output. Do not include JSON, commentary, or additional explanations. 
+        """
+        # Return JSON matching this exact format:
+        # {json.dumps({
+        #     "ro_system_specs": {"type": "string", "capacity": "string", "components": ["string"]},
+        #     "pretreatment": {"filtration": "string", "chemical_adjustments": ["string"]}
+        # }, indent=2)}
     
     result = llm_fallback(prompt, str)  # Expecting a string (Markdown)
     return {"treatment_specs": result}
@@ -279,25 +276,25 @@ def quotation_generator(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Generates a cost estimate based on system specs and treatment plan"""
 
     prompt = f"""
-You are a project cost estimator. Using the information below, produce:
+        You are a project cost estimator. Using the information below, produce:
 
-- base_price: Total equipment cost (float)
-- components: List of items with their individual costs
-- total_cost: Sum of all costs (float)
+        - base_price: Total equipment cost (float)
+        - components: List of items with their individual costs
+        - total_cost: Sum of all costs (float)
 
-Inputs:
-### Input Data:
-```json
-{json.dumps(input_data, indent=2)}
-```
+        Inputs:
+        ### Input Data:
+        ```json
+        {json.dumps(input_data, indent=2)}
+        ```
 
-Return JSON exactly with markdown to allow you to be creative  as:
-{json.dumps({
-    "base_price": 0.0,
-    "components": [{"name": "string", "cost": 0.0}],
-    "total_cost": 0.0
-}, indent=2)}
-"""
+        Return JSON exactly with markdown to allow you to be creative  as:
+        {json.dumps({
+            "base_price": 0.0,
+            "components": [{"name": "string", "cost": 0.0}],
+            "total_cost": 0.0
+        }, indent=2)}
+        """
     result = llm_fallback(prompt, str)
     return {"quotation_generator": result}
 
@@ -314,22 +311,22 @@ def proposal_generator(input_data: Dict[str, Any]) -> Dict[str, Any]:
 # - Pretreatment plan: {json.dumps(pretreatment, indent=2)}
 # - Customer request: {json.dumps(customer_request, indent=2)}
     prompt = f"""
-You are a technical consultant preparing a proposal document. Using the data below, create a JSON proposal containing:
+        You are a technical consultant preparing a proposal document. Using the data below, create a JSON proposal containing:
 
-1. system_overview: A concise summary string
-2. technical_specs: {{ "flow_rate": "string", "treatment_stages": ["string"] }}
-3. cost_breakdown: {{ "equipment": float, "installation": float }}
+        1. system_overview: A concise summary string
+        2. technical_specs: {{ "flow_rate": "string", "treatment_stages": ["string"] }}
+        3. cost_breakdown: {{ "equipment": float, "installation": float }}
 
-Inputs:
-{json.dumps(input_data, indent=2)}
+        Inputs:
+        {json.dumps(input_data, indent=2)}
 
-Return ONLY the JSON matching this schema.
-{json.dumps({
-    "system_overview": "string",
-    "technical_specs": {"flow_rate": "string", "treatment_stages": ["string"]},
-    "cost_breakdown": {"equipment": 0.0, "installation": 0.0}
-}, indent=2)}
-"""
+        Return ONLY the JSON matching this schema.
+        {json.dumps({
+            "system_overview": "string",
+            "technical_specs": {"flow_rate": "string", "treatment_stages": ["string"]},
+            "cost_breakdown": {"equipment": 0.0, "installation": 0.0}
+        }, indent=2)}
+        """
     
     result = llm_fallback(prompt, str)
     return {"proposal_generator": result}

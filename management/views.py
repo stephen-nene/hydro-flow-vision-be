@@ -13,7 +13,7 @@ from .models import *
 from .serializers import *
 from uuid import UUID
 
-from .AI.tools import analyse_lab_report
+from .AI.tools import *
 # from .AI.old.mainai import run_agent
 from .AI.mainai import run_sequential_workflow,execute_tool_sequence
 from functools import lru_cache
@@ -571,44 +571,45 @@ class FormatCustomerRequestPromptView(APIView):
             # result = analyse_lab_report(tool_input)
             sequence_to_run = ["treatment_recommendation", "ro_sizing", "quotation_generator", "proposal_generator"]
 
-            # agent_res = run_sequential_workflow(
-            #     initial_data=tool_input,
-            #     tool_sequence=sequence_to_run
-            # )
-
-            agent_res2= execute_tool_sequence(
-                initial_data=tool_input, 
-                # target_tool="proposal_generator",
-                full_sequence=True
+            agent_res = analyse_lab_report2(
+            tool_input
             )
 
-            if agent_res2['success']:
-                return Response({
-                "formatted_prompt": agent_res2,
-                "agent": agent_res2,
-                    "status": "success",
-                    "result": agent_res2['final_output'],
-                    "execution_flow": agent_res2['execution_sequence']
-                })
-            else:
-                return Response({
-                    "status": "error",
-                    "errors": agent_res2,
-                    "completed_steps": agent_res2['execution_sequence'],
-                    "available_data": agent_res2['results']
-                }, status=400)
+            # agent_res2= execute_tool_sequence(
+            #     initial_data=tool_input, 
+            #     # target_tool="proposal_generator",
+            #     full_sequence=True
+            # )
+
+
+
+            # if agent_res2['success']:
+            #     return Response({
+            #     "formatted_prompt": agent_res2,
+            #     "agent": agent_res2,
+            #         "status": "success",
+            #         "result": agent_res2['final_output'],
+            #         "execution_flow": agent_res2['execution_sequence']
+            #     })
+            # else:
+            #     return Response({
+            #         "status": "error",
+            #         "errors": agent_res2,
+            #         "completed_steps": agent_res2['execution_sequence'],
+            #         "available_data": agent_res2['results']
+            #     }, status=400)
             
             # agent_res = run_agent(result)
-            # return Response({
-            #     "formatted_prompt": result,
-            #     "agent": agent_res2,
-            #     # "debug_data": result["debug_data"],
-            #     "request_id": customer_request_id,
-            #     "guideline_id": guideline_id,
-            #     "ai_settings_used": ai_settings
-            # }, status=status.HTTP_200_OK)
+            return Response({
+                # "formatted_prompt": result,
+                "agent": agent_res,
+                # "debug_data": result["debug_data"],
+                "request_id": customer_request_id,
+                "guideline_id": guideline_id,
+                "ai_settings_used": ai_settings
+            }, status=status.HTTP_200_OK)
         
         except Exception as e:
             logger.error(f"Error in format_customer_request_prompt: {e}")
-            return Response({"error": "Failed to format customer request prompt"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": "Failed to format customer request prompt","detail":str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

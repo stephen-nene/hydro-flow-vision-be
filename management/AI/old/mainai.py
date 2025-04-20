@@ -16,9 +16,20 @@ from langchain_core.runnables import RunnableConfig
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from ..tools import get_pump_details, AgentState
+from .tools import get_pump_details, AgentState
 
-from ..tools import analyse_lab_report,treatment_recommendation,ro_sizing,quotation_generator,proposal_generator
+from .tools import analyse_lab_report,treatment_recommendation,ro_sizing,quotation_generator,proposal_generator
+
+
+class SequentialAgentState(TypedDict):
+    """State for a sequential tool execution workflow."""
+    messages: Annotated[Sequence[BaseMessage], add_messages] # Keep for logging/context if needed
+    initial_request_data: Dict[str, Any] # Store the original formatted request
+    tool_sequence: List[str]           # The sequence of tool names to execute
+    current_tool_index: int            # Index of the next tool to run in the sequence
+    tool_results: Dict[str, Any]       # Store results from successfully run tools
+    error_log: List[str]               # Log errors encountered during execution
+    final_output: Optional[Dict[str, Any]] # Store the final result after sequence completion
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

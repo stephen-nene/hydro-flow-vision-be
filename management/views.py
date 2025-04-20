@@ -14,8 +14,16 @@ from .serializers import *
 from uuid import UUID
 
 from .AI.tools import analyse_lab_report
-from .AI.old.mainai import run_agent
+# from .AI.old.mainai import run_agent
 from .AI.mainai import run_sequential_workflow,execute_tool_sequence
+from functools import lru_cache
+
+@lru_cache(maxsize=100)
+def get_guideline_with_params(guideline_id):
+    """Cache guideline queries"""
+    return WaterGuideline.objects.prefetch_related(
+        Prefetch('parameters', queryset=WaterGuidelineParameter.objects.only('name', 'unit', 'min_value', 'max_value'))
+    ).get(id=guideline_id)
 
 import logging
 
@@ -64,7 +72,11 @@ class WaterGuidelineViewSet(viewsets.ModelViewSet):
         tags=["Water Quality Standards"]
     )
     def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
+        # use my new cache function
+        guideline = get_guideline_with_params(kwargs['pk'])
+        serializer = self.get_serializer(guideline)
+        return Response(serializer.data)
+        # return super().retrieve(request, *args, **kwargs)
 
     # -------------------------
     # 🟩 CREATE
@@ -420,7 +432,6 @@ class WaterReportAttachmentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(attachments, many=True)
         return Response(serializer.data)
     
-
 class AiProcessCustomerRequest():
     # take the id of a customer request
     def __init__(self, customer_request):
@@ -502,20 +513,16 @@ class FormatCustomerRequestPromptView(APIView):
             return Response({"error": "Customer request not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # Fetch guideline if provided
-        guideline = None
         if guideline_id:
             try:
-                guideline = WaterGuideline.objects.prefetch_related('parameters').get(id=guideline_id)
-                
-                # Check usage compatibility unless overridden
+                guideline = get_guideline_with_params(guideline_id)
                 if not override_usage_check and guideline.usage.lower() != request_obj.water_usage.lower():
                     return Response({
-                        "error": f"Guideline usage ({guideline.usage}) doesn't match customer water usage ({request_obj.water_usage})",
-                        "solution": "Set override_usage_check=True to bypass this check"
+                        "error": f"Guideline usage mismatch ({guideline.usage} vs {request_obj.water_usage})",
+                        "solution": "Set override_usage_check=True to bypass"
                     }, status=status.HTTP_400_BAD_REQUEST)
-                    
             except WaterGuideline.DoesNotExist:
-                return Response({"error": "Guideline not found."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Guideline not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Prepare clean water parameters
         water_params = [
@@ -531,15 +538,16 @@ class FormatCustomerRequestPromptView(APIView):
         # Prepare guideline parameters if exists
         guideline_params = None
         if guideline:
-            guideline_params = [
-                {
-                    "name": param.name,
+            
+            guideline_params = {
+                param.name: {
                     "unit": param.unit,
                     "min_value": param.min_value,
                     "max_value": param.max_value
                 }
                 for param in guideline.parameters.all()
-            ]
+            }
+
 
         # Build tool input
         tool_input = {
@@ -555,9 +563,8 @@ class FormatCustomerRequestPromptView(APIView):
                     "notes": request_obj.extras.get("notes", "No additional notes provided."),
                 },
                 "guideline": guideline_params,
-                "ai_settings": ai_settings  # Keeping this for future use
+                "ai_settings": ai_settings 
             }
-       
 
         try:
         
@@ -565,13 +572,13 @@ class FormatCustomerRequestPromptView(APIView):
             sequence_to_run = ["treatment_recommendation", "ro_sizing", "quotation_generator", "proposal_generator"]
 
             # agent_res = run_sequential_workflow(
-            #     initial_data=tool_input, # Pass the structured initial data
+            #     initial_data=tool_input,
             #     tool_sequence=sequence_to_run
             # )
 
             agent_res2= execute_tool_sequence(
-                initial_data=tool_input, # Pass the structured initial data
-                target_tool="proposal_generator",
+                initial_data=tool_input, 
+                # target_tool="proposal_generator",
                 full_sequence=True
             )
 

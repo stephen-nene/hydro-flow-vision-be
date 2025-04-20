@@ -17,6 +17,7 @@ from langchain_core.runnables import RunnableConfig
 from typing import List, Dict, Any, Optional, Sequence
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
+from datetime import datetime
 
 class ToolResult(TypedDict):
     tool_name: str
@@ -30,10 +31,14 @@ from .tools import get_pump_details, AgentState
 
 from .tools import analyse_lab_report,treatment_recommendation,ro_sizing,quotation_generator,proposal_generator
 
+
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 load_dotenv()
+import logging
+
+
 
 # Collect all tools
 tools = [analyse_lab_report,treatment_recommendation,ro_sizing,quotation_generator,proposal_generator ]
@@ -94,6 +99,7 @@ TOOL_DEPENDENCY_MAP = {
     }
 }
 
+
 class ToolExecutionResult(BaseModel):
     success: bool
     output: Optional[Dict[str, Any]] = None
@@ -106,7 +112,7 @@ def execute_tool_sequence(
     full_sequence: bool = False
 ) -> Dict[str, Any]:
     """
-    Executes tools in logical sequence, automatically handling dependencies.
+    Executes tools in logical sequence with comprehensive error handling.
     
     Args:
         initial_data: Complete input data including customer_request and guideline
@@ -119,10 +125,14 @@ def execute_tool_sequence(
         - results: Outputs from each tool
         - final_output: Result from last executed tool
         - errors: Any encountered errors
+        - status: Overall success status
     """
     context = initial_data.copy()
     execution_log = []
     errors = []
+
+    logging.info("Starting tool execution sequence.")
+    logging.debug(f"Initial data: {initial_data}")
     
     # Determine execution sequence
     all_tools = list(TOOL_DEPENDENCY_MAP.keys())
@@ -130,78 +140,109 @@ def execute_tool_sequence(
         try:
             target_index = all_tools.index(target_tool)
             tool_sequence = all_tools[:target_index + 1]
+            logging.info(f"Target tool specified: {target_tool}, running tools up to it.")
         except ValueError:
             errors.append(f"Invalid target tool: {target_tool}")
+            logging.warning(f"Invalid target tool: {target_tool}")
             tool_sequence = all_tools if full_sequence else []
     else:
         tool_sequence = all_tools if full_sequence else []
+        logging.info("No target tool specified, using full_sequence: %s", full_sequence)
+
+    logging.info(f"Tool execution sequence determined: {tool_sequence}")
     
     # Execute the determined sequence
     for tool_name in tool_sequence:
-        tool = tools_by_name.get(tool_name)
+        logging.info(f"Executing tool: {tool_name}")
+        tool = globals().get(tool_name)
+        
         if not tool:
-            errors.append(f"Tool not found: {tool_name}")
+            error_msg = f"Tool not found: {tool_name}"
+            logging.error(error_msg)
+            errors.append(error_msg)
             continue
-            
-        # Check input requirements
+
         required_inputs = TOOL_DEPENDENCY_MAP[tool_name]["requires"]
         missing_inputs = [inp for inp in required_inputs if inp not in context]
         
         if missing_inputs:
             error_msg = f"Skipping {tool_name} - Missing inputs: {missing_inputs}"
+            logging.warning(error_msg)
             errors.append(error_msg)
             execution_log.append({
                 "tool": tool_name,
                 "status": "skipped",
-                "reason": error_msg
+                "reason": error_msg,
+                "timestamp": datetime.now().isoformat()
             })
             continue
-        
+
         try:
-            # Prepare tool-specific input
             tool_input = {k: context[k] for k in required_inputs}
+            logging.debug(f"{tool_name} - Inputs: {tool_input}")
             
-            # Execute tool
-            result = tool.invoke(tool_input)
-            
-            # Validate output contains promised fields
+            try:
+                result = tool.invoke(tool_input)
+                logging.debug(f"{tool_name} - Raw result: {result}")
+                
+                if isinstance(result, dict) and 'success' in result:
+                    if not result['success']:
+                        raise ValueError(f"Tool reported failure: {result.get('error', 'Unknown error')}")
+                    tool_output = result['data']
+                else:
+                    tool_output = result
+
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON output from tool: {str(e)}")
+            except Exception as e:
+                raise ValueError(f"Tool execution failed: {str(e)}")
+
             expected_outputs = TOOL_DEPENDENCY_MAP[tool_name]["provides"]
-            if not all(out in result for out in expected_outputs):
-                raise ValueError(f"Tool {tool_name} didn't provide expected outputs: {expected_outputs}")
-            
-            # Update context with results
-            context.update(result)
+            if not all(out in tool_output for out in expected_outputs):
+                missing = [out for out in expected_outputs if out not in tool_output]
+                raise ValueError(f"Missing expected outputs: {missing}")
+
+            context.update(tool_output)
             execution_log.append({
                 "tool": tool_name,
                 "status": "success",
-                "inputs": tool_input,
-                "outputs": result
+                # "inputs": tool_input,
+                "outputs": tool_output,
+                "timestamp": datetime.now().isoformat()
             })
-            
+            logging.info(f"{tool_name} executed successfully.")
+            logging.debug(f"{tool_name} - Outputs: {tool_output}")
+
         except Exception as e:
             error_msg = f"Error in {tool_name}: {str(e)}"
+            logging.error(error_msg)
             errors.append(error_msg)
             execution_log.append({
                 "tool": tool_name,
                 "status": "failed",
-                "error": error_msg
+                "error": error_msg,
+                "timestamp": datetime.now().isoformat(),
+                "context_snapshot": context.copy()
             })
+
             if tool_name == target_tool:
-                break  # Stop if target tool fails
-    
-    # Prepare final output
+                logging.info(f"Target tool {target_tool} failed. Stopping sequence.")
+                break
+
     final_output = None
-    if execution_log and execution_log[-1]["status"] == "success":
-        final_output = execution_log[-1]["outputs"]
-    
+    successful_steps = [e for e in execution_log if e['status'] == 'success']
+    if successful_steps:
+        final_output = successful_steps[-1]['outputs']
+
+    logging.info("Tool execution sequence complete.")
     return {
-        "execution_sequence": [entry["tool"] for entry in execution_log],
+        "execution_sequence": execution_log,
         "results": context,
         "final_output": final_output,
         "errors": errors,
-        "success": len(errors) == 0
+        "success": len(errors) == 0 and len(successful_steps) > 0,
+        "timestamp": datetime.now().isoformat()
     }
-# In mainai.py
 
 def run_sequential_workflow(initial_data: Dict, tool_sequence: List[str]):
     """Runs the sequential workflow."""

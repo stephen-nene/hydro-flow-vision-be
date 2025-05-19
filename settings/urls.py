@@ -26,9 +26,13 @@ from drf_yasg import openapi
 
 from django.conf import settings
 
+
+
+
+
 schema_view = get_schema_view(
    openapi.Info(
-      title="Django Server API",
+      title="AquaFlow",
       default_version='v1',
       description="API documentation for a Django server, with basic authentication and user management",
       terms_of_service="https://stevenene.vercel.app",
@@ -50,9 +54,16 @@ urlpatterns = [
     path('admin/doc/', include('django.contrib.admindocs.urls')),
     path('admin/', admin.site.urls),
     path('accounts/login/', RedirectView.as_view(url='/admin/login/', permanent=False)),
+
+        path('api/profiles/', include('profiles.urls')),
+    path('api/management/', include('management.urls')),
+
     
-    path('profile/', include('profiles.urls'))
+    # path('profile/', include('profiles.urls'))
     
     # path('api/v1.0/api/', include('profiles.urls'))
     
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

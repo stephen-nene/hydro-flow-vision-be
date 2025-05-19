@@ -97,7 +97,9 @@ dependencies = [
   "whitenoise==6.9.0",
   "xxhash==3.5.0",
   "zopfli==0.2.3.post1",
-  "zstandard==0.23.0"
+  "zstandard==0.23.0",
+ ' dotenv==0.9.9',
+"python-dotenv==1.1.0"
 ]
 
 [build-system]

@@ -18,7 +18,8 @@ class Command(BaseCommand):
             for i in range(5):
                 first_name = fake.first_name()
                 last_name = fake.last_name()
-                username = f"{role_value}_{i}_{get_random_string(5)}"
+                username = f"{role_value}_{i}"
+                # username = f"{role_value}_{i}_{get_random_string(5)}"
                 email = f"{username}@example.com"
                 phone = fake.phone_number()
 

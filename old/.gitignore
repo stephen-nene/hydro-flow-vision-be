@@ -1,0 +1,16 @@
+env
+venv
+
+*.env
+
+*.pyc
+
+*.db
+
+# __init__.
+__init__.pyo
+
+
+uploads
+
+staticfiles

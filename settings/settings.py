@@ -77,7 +77,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'drf_yasg',
-    'profiles',    
+    'profiles',  
+    'management' 
 ]
 
 MIDDLEWARE = [
@@ -169,7 +170,7 @@ tmpPostgres = urlparse(config("DATABASE_URL"))
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql' if is_production else 'django.db.backends.sqlite3',
-        'NAME': tmpPostgres.path.replace('/', '') if is_production else BASE_DIR / 'server.db',
+        'NAME': tmpPostgres.path.replace('/', '') if is_production else BASE_DIR / 'hydroflow.db',
         'USER': tmpPostgres.username if is_production else '',
         'PASSWORD': tmpPostgres.password if is_production else '',
         'HOST': tmpPostgres.hostname if is_production else '',

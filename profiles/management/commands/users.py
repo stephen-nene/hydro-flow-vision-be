@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from profiles.models import User, UserRole, UserStatus, Gender
+from profiles.models import User, UserRole, UserStatus, UserGender
 from django.utils.crypto import get_random_string
 from faker import Faker
 import random
@@ -11,7 +11,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         roles = UserRole.choices
-        genders = [Gender.MALE, Gender.FEMALE, Gender.NON_BINARY, Gender.UNDISCLOSED]
+        genders = [UserGender.MALE, UserGender.FEMALE, UserGender.NON_BINARY, UserGender.UNDISCLOSED]
         status_choices = [UserStatus.ACTIVE, UserStatus.INACTIVE, UserStatus.PENDING_VERIFICATION]
 
         for role_value, role_name in roles:
@@ -31,7 +31,7 @@ class Command(BaseCommand):
                     last_name=last_name,
                     role=role_value,
                     status=random.choice(status_choices),
-                    date_of_birth=fake.date_of_birth(minimum_age=18, maximum_age=65),
+                    birth_date=fake.date_of_birth(minimum_age=18, maximum_age=65),
                     gender=random.choice(genders),
                     phone_number=fake.phone_number(),
                     address={

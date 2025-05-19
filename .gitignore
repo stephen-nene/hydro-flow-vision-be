@@ -3,14 +3,21 @@ venv
 
 *.env
 
-*.pyc
-
 *.db
+
 
 # __init__.
 __init__.pyo
 
+# Ignore Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.cpython-*
+*.pyd
+*.pyc
 
-uploads
 
 staticfiles
+
+*.sqlite3

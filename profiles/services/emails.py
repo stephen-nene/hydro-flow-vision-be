@@ -1,8 +1,18 @@
 from django.core.mail import send_mail
 from django.conf import settings
-
+import threading
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from django.utils.timezone import now   
+
+
+
+def send_email_async(email):
+    """Helper function to send email asynchronously."""
+    try:
+        email.send()
+    except Exception as e:
+        print(f"Email sending failed: {e}")  # Log error (or use logging framework)
 
 def send_custom_email(to_email, subject, template_name, context):
 
@@ -19,19 +29,84 @@ def send_custom_email(to_email, subject, template_name, context):
     email.attach_alternative(html_content, "text/html")  
     email.send()
 def send_welcome_email(user, activation_url):
-    subject = "Welcome to Tiberbu!"
+    subject = "Welcome to Django server template!"
     to_email = user.email
 
     # Render HTML content
-    html_content = render_to_string("email/welcome_email.html", {
+    html_content = render_to_string("emails/welcome_email.html", {
         "user": user,
         "activation_url": activation_url,
     })
 
     # Send the email
-    email = EmailMultiAlternatives(subject="Welcome to Tiberbu!", body=html_content, from_email=settings.EMAIL_HOST_USER, to=[to_email])
+    email = EmailMultiAlternatives(subject="Welcome to Django Server Template!", body=html_content, from_email=settings.EMAIL_HOST_USER, to=[to_email])
     email.attach_alternative(html_content, "text/html")
     email.send()
+    
+def confirm_account_activation(user):
+    subject = "Account Activation"
+    to_email = user.email
+    
+    # Render HTML content
+    html_content = render_to_string("emails/account_activation.html", {
+        "user": user
+    })
+
+    # Send the email
+    email = EmailMultiAlternatives(subject=subject, body=html_content, from_email=settings.EMAIL_HOST_USER, to=[to_email])
+    email.attach_alternative(html_content, "text/html")
+     # Send email in a separate thread
+    email_thread = threading.Thread(target=send_email_async, args=(email,))
+    email_thread.start()
+    # send_email_verification(user, new_email, context)    
+    
+def send_email_verification(user, verification_url,new_email=None):
+    # user has just chnaged their email
+    subject = "Email Change Verification"
+    to_email = user.email
+    
+    context = {
+        "user": user,
+        "verification_url": verification_url,
+        "new_email": new_email or user.email
+    }
+
+    html_content = render_to_string("emails/email_verification.html", context)
+    email = EmailMultiAlternatives(
+        subject=subject,
+        body=html_content,
+        from_email=settings.EMAIL_HOST_USER,
+        to=[to_email]
+    )
+    
+    # Send the email
+    email.attach_alternative(html_content, "text/html")
+    # Send email in a separate thread
+    email_thread = threading.Thread(target=send_email_async, args=(email,))
+    email_thread.start()
+    # email.send()
+    
+    
+def send_password_reset_email(user, url):
+    subject = "Reset Your Password"
+    to_email = user.email
+
+    # Render HTML content
+    html_content = render_to_string("emails/reset_password.html", {
+        "user": user,
+        "activation_url": url,
+    })
+
+    # Send the email
+    email = EmailMultiAlternatives(
+        subject=subject, 
+        body=html_content, 
+        from_email=settings.EMAIL_HOST_USER, 
+        to=[to_email]
+    )
+    email.attach_alternative(html_content, "text/html")
+    email.send()
+
     
 def send_login_email(user_email, username):
     subject = "Login Notification"
@@ -41,33 +116,27 @@ def send_login_email(user_email, username):
 
     send_mail(subject, message, from_email, recipient_list)
     
-def send_speed_date_email(user, speed_date, base_url):
-    """
-    Sends an email to the creator with the link to their created SpeedDate.
-    """
-    subject = "Your Speed Date is Created!"
-    to_email = user.email  # Creator's email
-
-    # Generate the Speed Date URL dynamically
-    speed_date_link = f"{base_url}/speeddate/{speed_date.id}"
-
-    # Context for the email template
+def send_login_notification(user, ip, user_agent, browser, os, location_guess="Unknown"):
+    subject = f"Login Notification for {user.username}"
     context = {
-        "user": user,
-        "speed_date": speed_date,
-        "speed_date_link": speed_date_link,
+        "username": user.username,
+        "ip": ip,
+        "user_agent": user_agent,
+        "browser": browser,
+        "os": os,
+        "time": now().strftime("%Y-%m-%d %H:%M:%S"),
+        "location": location_guess,
     }
 
-    # Render HTML email content
-    html_content = render_to_string("emails/speed_date_created.html", context)
-    text_content = f"Hi {user.first_name},\n\nYour Speed Date has been created successfully!\nYou can access it here: {speed_date_link}"
+    html_content = render_to_string("emails/login_notification.html", context)
+    text_content = f"Hi {user.username},\nYou just logged in from IP {ip} using {browser} on {os}.\nIf this wasn’t you, please secure your account."
 
-    # Create and send the email
     email = EmailMultiAlternatives(
         subject=subject,
         body=text_content,
         from_email=settings.EMAIL_HOST_USER,
-        to=[to_email],
+        to=[user.email]
     )
-    email.attach_alternative(html_content, "text/html")  # Attach HTML version
-    email.send()
+    email.attach_alternative(html_content, "text/html")
+    
+    threading.Thread(target=send_email_async, args=(email,)).start()

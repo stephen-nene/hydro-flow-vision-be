@@ -7,7 +7,9 @@ venv
 
 *.db
 
-__init__.*
+# __init__.
+__init__.pyo
+
 
 uploads
 

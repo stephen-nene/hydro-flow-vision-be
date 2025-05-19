@@ -1,0 +1,58 @@
+[
+    {
+      "source": "Borehole Water",
+      "common_issues": ["High mineral content", "Hardness", "Iron", "Manganese"],
+      "recommended_treatment": [
+        "Softener",
+        "Iron removal (DMI Filter / Oxidation + Filtration)",
+        "Sediment Filtration",
+        "Activated Carbon (optional for odor)"
+      ],
+      "notes": "May require antiscalant for RO; test for fluoride and nitrates."
+    },
+    {
+      "source": "Surface Water",
+      "common_issues": ["Bacteria", "Color", "Sediments", "Algae", "Organic Matter"],
+      "recommended_treatment": [
+        "Pre-chlorination or UV",
+        "Multi-media filtration",
+        "Activated Carbon",
+        "Cartridge Filtration (5 micron)"
+      ],
+      "notes": "Highly variable quality; requires consistent disinfection."
+    },
+    {
+      "source": "Shallow Well Water",
+      "common_issues": ["Bacteria", "Nitrates", "Iron", "Manganese"],
+      "recommended_treatment": [
+        "Disinfection (UV or Chlorination)",
+        "DMI or Birm Filters for Iron/Mn",
+        "Sediment Filtration"
+      ],
+      "notes": "Prone to contamination from surface runoff or latrines."
+    },
+    {
+      "source": "Rainwater",
+      "common_issues": ["Sediments", "Bacteria", "Acidic pH"],
+      "recommended_treatment": [
+        "First-flush diverter",
+        "Sediment Filtration",
+        "pH adjustment (Soda Ash)",
+        "UV or Carbon Filtration"
+      ],
+      "notes": "Generally low in minerals; ideal for RO after basic treatment."
+    },
+    {
+      "source": "Sea Water",
+      "common_issues": ["High Salinity", "Sodium", "Chloride", "Bacteria"],
+      "recommended_treatment": [
+        "Media Filtration",
+        "Cartridge Filter (5 micron)",
+        "RO System with SWRO membranes",
+        "Antiscalant (e.g., Genesys SW)",
+        "Post-treatment remineralization"
+      ],
+      "notes": "Requires corrosion-resistant equipment and energy-efficient RO."
+    }
+  ]
+  

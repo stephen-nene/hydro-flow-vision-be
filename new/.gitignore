@@ -1,0 +1,21 @@
+env
+venv
+
+*.env
+
+*.db
+
+__init__.*
+
+# Ignore Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.cpython-*
+*.pyd
+*.pyc
+
+
+staticfiles
+
+*.sqlite3

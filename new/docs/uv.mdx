@@ -1,0 +1,108 @@
+To update your `pyproject.toml` and `uv.lock` files using the latest list of requirements (like the one you just shared), you can use [**`uv`**](https://github.com/astral-sh/uv) (by Astral) to regenerate and lock dependencies properly. Here's a clear step-by-step guide:
+
+---
+
+### ✅ STEP 1: Clean your current project dependencies (optional but recommended)
+
+If you're rebuilding or re-aligning:
+
+```bash
+rm uv.lock
+rm -rf .venv  # Or your virtual environment folder
+```
+
+---
+
+### ✅ STEP 2: Create or update your `pyproject.toml`
+
+You can manually edit the `[project]` section or use `uv pip compile` to scaffold from a `requirements.txt`.
+
+#### Option A: Start from `requirements.txt`
+
+1. Save the full list into a `requirements.txt`.
+2. Run:
+
+```bash
+uv pip compile requirements.txt --upgrade --output pyproject.toml
+```
+
+This will generate a `pyproject.toml` file with all dependencies in the `[project]` section and constraints properly tracked.
+
+#### Option B: Add dependencies manually
+
+Edit `pyproject.toml` like this:
+
+```toml
+[project]
+name = "your-project-name"
+version = "0.1.0"
+dependencies = [
+  "annotated-types==0.7.0",
+  "anyio==4.9.0",
+  "asgiref==3.8.1",
+  ...
+]
+```
+
+(You can copy the list from our previous response and paste it inside `dependencies = [ ... ]`.)
+
+---
+
+### ✅ STEP 3: Use `uv` to install & lock dependencies
+
+Once your `pyproject.toml` is set:
+
+```bash
+uv venv  # Optional: create a virtual environment
+uv pip install -r pyproject.toml  # This installs and creates uv.lock
+```
+
+Or, simply:
+
+```bash
+uv pip install  # if you're already in a directory with pyproject.toml
+```
+
+`uv` will:
+
+* Resolve all versions,
+* Download and install the wheels,
+* Create a new `uv.lock` file.
+
+---
+
+### ✅ STEP 4: Check your environment
+
+To verify:
+
+```bash
+uv pip list  # View installed packages
+```
+
+Or use:
+
+```bash
+uv pip check  # Check for version conflicts or issues
+```
+
+---
+
+### ✅ Notes
+
+* To **add a new package**, run:
+
+```bash
+uv pip install somepackage
+```
+
+This updates both `pyproject.toml` and `uv.lock`.
+
+* To **upgrade all**:
+
+```bash
+uv pip compile --upgrade
+```
+
+---
+
+Would you like me to generate a valid `pyproject.toml` from the merged list for you?

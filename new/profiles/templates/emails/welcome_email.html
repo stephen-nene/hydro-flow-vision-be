@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Activate Your Account</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f6f9;
+        color: #333;
+      }
+
+      .email-container {
+        max-width: 600px;
+        margin: 20px auto;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .header {
+        background-color: #0d6efd;
+        color: #ffffff;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .body {
+        padding: 20px;
+      }
+
+      .body h2 {
+        font-size: 20px;
+        margin-bottom: 10px;
+        color: #0d6efd;
+      }
+
+      .body p {
+        font-size: 16px;
+        line-height: 1.6;
+        margin-bottom: 15px;
+      }
+
+      .activation-link {
+        display: inline-block;
+        background-color: #0d6efd;
+        color: #ffffff;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 4px;
+        margin-top: 15px;
+      }
+
+      .footer {
+        padding: 20px;
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+      }
+
+      .footer a {
+        color: #0d6efd;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>Django Server Template</h1>
+        <p>Your base API platform is ready</p>
+      </div>
+      <div class="body">
+        <h2>Hello {{ user.username }},</h2>
+        <p>Welcome to Django Server Template! We're excited to have you.</p>
+        <p>Please activate your account by clicking the button below:</p>
+        <a href="{{ activation_url }}" class="activation-link">Activate My Account</a>
+        <p>If the button doesn't work, copy and paste this URL into your browser:</p>
+        <p><a href="{{ activation_url }}">{{ activation_url }}</a></p>
+        <p>If you didn't request this email, you can ignore it.</p>
+      </div>
+      <div class="footer">
+        <p>&copy; {{ now|date:"Y" }} Django Server Template. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+</html>

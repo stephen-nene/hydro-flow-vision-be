@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7fc;
+            padding: 20px;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: auto;
+        }
+        h2 {
+            color: #2d89ef;
+        }
+        p {
+            font-size: 1em;
+            line-height: 1.6;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #333;
+        }
+        .button-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 0 5px;
+            font-weight: bold;
+        }
+        .button.accepted {
+            background-color: #2d89ef;
+        }
+        .button.accepted:hover {
+            background-color: #1e5cb7;
+        }
+        .button.declined {
+            background-color: #ff4d4d;
+        }
+        .button.declined:hover {
+            background-color: #e04343;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #555;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <h2>✨ New Form Submission Received! ✨</h2>
+        <p><span class="highlight">📛 Sender Name:</span> {{ senderName }}</p>
+        <p><span class="highlight">📞 Phone Number:</span> {{ number }}</p>
+        <p><span class="highlight">📧 Email:</span> <a href="mailto:{{ email }}">{{ email }}</a></p>
+        <p><span class="highlight">💬 Message:</span> {{ message }}</p>
+        <div class="button-container">
+            <!-- Dynamic Button for Accepted or Declined status -->
+            <a href="#" class="button {% if status == 'accepted' %}accepted{% else %}declined{% endif %}">
+                {% if status == 'accepted' %}✔️ Accepted{% else %}❌ Declined{% endif %}
+            </a>
+        </div>
+        <p>Take action and review the details above to follow up as needed! 🚀</p>
+        <div class="footer">
+            <p>Thank you for your attention! 🎯<br>Looking forward to the next steps.</p>
+        </div>
+    </div>
+</body>
+</html>

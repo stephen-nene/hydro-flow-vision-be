@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Verify Your New Email Address</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 32px;
+        }
+        h2 {
+            color: #007BFF;
+            margin-top: 0;
+        }
+        p {
+            line-height: 1.6;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 24px;
+            margin: 20px 0;
+            background-color: #007BFF;
+            color: #fff !important;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .fallback {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 20px;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 0.85em;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Verify Your New Email Address</h2>
+        <p>Hi <strong>{{ user.username }}</strong>,</p>
+        <p>
+            You've requested to change your email address to <strong>{{ new_email }}</strong>.<br>
+            Please confirm this change by clicking the button below:
+        </p>
+        <a href="{{ verification_url }}" class="button" target="_blank" rel="noopener noreferrer">Verify Email Address</a>
+        <div class="fallback">
+            If the button above doesn't work, copy and paste this link into your browser:<br>
+            <a href="{{ verification_url }}" target="_blank">{{ verification_url }}</a>
+        </div>
+        <p>
+            If you didn't request this, you can safely ignore this email or <a href="mailto:support@yourapp.com">contact our support team</a>.
+        </p>
+        <p><strong>Note:</strong> This verification link expires in 24 hours.</p>
+        <div class="footer">
+            &mdash; The YourApp Team
+        </div>
+    </div>
+</body>
+</html>

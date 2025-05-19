@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account Activated Successfully</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #eaf7e1;
+        color: #2c5e1a;
+      }
+
+      .email-container {
+        max-width: 600px;
+        margin: 20px auto;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .header {
+        background-color: #4caf50;
+        color: #ffffff;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .body {
+        padding: 20px;
+      }
+
+      .body h2 {
+        font-size: 20px;
+        margin-bottom: 10px;
+        color: #388e3c;
+      }
+
+      .body p {
+        font-size: 16px;
+        line-height: 1.6;
+        margin-bottom: 15px;
+      }
+
+      .details {
+        background: #f9f9f9;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 15px;
+      }
+
+      .details p {
+        font-size: 16px;
+        margin: 5px 0;
+      }
+
+      .login-button {
+        display: inline-block;
+        background-color: #388e3c;
+        color: #ffffff;
+        padding: 10px 20px;
+        text-decoration: none;
+        font-size: 16px;
+        border-radius: 4px;
+        margin-top: 15px;
+        text-align: center;
+      }
+
+      .footer {
+        padding: 20px;
+        text-align: center;
+        font-size: 14px;
+        color: #555;
+      }
+
+      .footer a {
+        color: #388e3c;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <!-- Header -->
+      <div class="header">
+        <h1>Greensert AI - Account Activated!</h1>
+        <p>Your journey to restoring nature starts now!</p>
+      </div>
+
+      <!-- Body -->
+      <div class="body">
+        <h2>Hello {{ user.first_name }},</h2>
+        <p>
+          Your account has been successfully activated! You can now log in and start exploring our platform.
+        </p>
+
+        <div class="details">
+          <p><strong>Username:</strong> {{ user.username }}</p>
+          <p><strong>Email:</strong> {{ user.email }}</p>
+          <p><strong>Member Since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+        </div>
+
+        <a href="https://greensert.vercel.app/login" class="login-button">Log in Now</a>
+
+        <p>
+          If the button above doesn’t work, copy and paste this URL into your browser:
+        </p>
+        <p><a href="https://greensert.vercel.app/login">https://greensert.vercel.app/login</a></p>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>Best regards,</p>
+        <p><strong>The Greensert AI Team</strong></p>
+        <p>
+          Need help? Contact us at <a href="mailto:support@greensert.ai">support@greensert.ai</a>
+        </p>
+        <p>
+          <a href="https://greensert.vercel.app" target="_blank">Visit Our Website</a>
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

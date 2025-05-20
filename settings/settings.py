@@ -132,16 +132,14 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:1420", 
-    'https://stevenene.vercel.com',
-    'https://frontend-template-pi.vercel.app',
-    'https://server-template-n0q8.onrender.com',
+    'https://aquapure-pi.vercel.app',
+    'https://ds-purifier.onrender.com',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:1420",
-    'https://stevenene.vercel.com',
-    'https://frontend-template-pi.vercel.app',
-    'https://server-template-n0q8.onrender.com',
+    'https://aquapure-pi.vercel.app',
+    'https://ds-purifier.onrender.com',
 ]
 
 ALLOWED_HOSTS = ['server-template-n0q8.onrender.com','stevenene.vercel.com','frontend-template-pi.vercel.app' ,"localhost", "127.0.0.1"]

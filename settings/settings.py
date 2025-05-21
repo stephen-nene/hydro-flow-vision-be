@@ -34,7 +34,7 @@ SECRET_KEY =config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ["ds-purifier.onrender.com","aquapure-pi.vercel.app"]
+ALLOWED_HOSTS = ["ds-purifier.onrender.com","aquapure-pi.vercel.app","localhost", "127.0.0.1"]
 
 
 
@@ -141,8 +141,6 @@ CSRF_TRUSTED_ORIGINS = [
     'https://aquapure-pi.vercel.app',
     'https://ds-purifier.onrender.com',
 ]
-
-ALLOWED_HOSTS = ['server-template-n0q8.onrender.com','stevenene.vercel.com','frontend-template-pi.vercel.app' ,"localhost", "127.0.0.1"]
 
 
 

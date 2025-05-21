@@ -34,12 +34,21 @@ SECRET_KEY =config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ["ds-purifier.onrender.com","aquapure-pi.vercel.app","localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+]
+
+if is_production:
+    ALLOWED_HOSTS += [
+        'ds-purifier.onrender.com',
+        'aquapure-pi.vercel.app',
+    ]
 
 
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=20),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ACTIVATE_TOKEN_LIFETIME": timedelta(days=1),
     "RESET_TOKEN_LIFETIME": timedelta(minutes=10),

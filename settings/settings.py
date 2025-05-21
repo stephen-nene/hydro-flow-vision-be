@@ -37,6 +37,8 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
+    'ds-purifier.onrender.com',
+    'aquapure-pi.vercel.app',
 ]
 
 if is_production:
@@ -44,7 +46,6 @@ if is_production:
         'ds-purifier.onrender.com',
         'aquapure-pi.vercel.app',
     ]
-
 
 
 SIMPLE_JWT = {

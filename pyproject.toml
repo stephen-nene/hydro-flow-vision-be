@@ -99,9 +99,13 @@ dependencies = [
   "zopfli==0.2.3.post1",
   "zstandard==0.23.0",
  ' dotenv==0.9.9',
-"python-dotenv==1.1.0"
+'python-dotenv==1.1.0'
 ]
 
 [build-system]
-requires = ["uv"]
-build-backend = "uv.build"
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools]
+packages = ["profiles", "settings", "management"]  # Add only your actual Django packages here

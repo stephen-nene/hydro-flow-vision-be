@@ -1,0 +1,50 @@
+# general:
+#   use_uvloop: true
+#   logging:
+#     console:
+#       _type: console
+#       level: WARN
+
+#   front_end:
+#     _type: fastapi
+
+#   front_end:
+#     _type: console
+
+# workflow:
+#   _type: water_analysis
+#   parameter: default_value
+# configs/config.yml
+functions:
+  analyse_lab_report:
+    _type: aiq.agent.reasoning_agent/reasoning_agent
+    description: "Analyzes water parameters against guidelines"
+    
+  treatment_recommendation:
+    _type: aiq.agent.reasoning_agent/reasoning_agent
+    description: "Generates treatment recommendations"
+    
+  ro_sizing:
+    _type: aiq.agent.reasoning_agent/reasoning_agent
+    description: "Calculates RO system sizing"
+    
+  quotation_generator:
+    _type: aiq.agent.reasoning_agent/reasoning_agent
+    description: "Generates customer quotations"
+
+llms:
+  nvidia_llm:
+    _type: nim
+    model_name: "meta/llama3-70b-instruct"
+    temperature: 0.3
+    timeout: 30
+
+workflow:
+  _type: react_agent
+  tool_chain: 
+    - analyse_lab_report
+    - treatment_recommendation
+    - ro_sizing
+    - quotation_generator
+  llm_name: nvidia_llm
+  max_retries: 3

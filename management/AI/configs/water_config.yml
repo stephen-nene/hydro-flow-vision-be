@@ -1,66 +1,332 @@
-# SPDX-FileCopyrightText: Copyright [...]
-# SPDX-License-Identifier: Apache-2.0
+# # water_config.yml
+# # SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# # SPDX-License-Identifier: Apache-2.0
 
+# # Enhanced Water Treatment System Configuration with AI Reasoning
+
+# functions:
+#   # Lab Report Analysis with AI Reasoning
+#   analyse_lab_report:
+#     _type: aiq.agent.reasoning_agent/reasoning_agent
+#     description: "AI-powered analysis of water parameters against guidelines with safety-first reasoning"
+#     requires: ["customer_request", "guideline"]
+#     min_response_time: 5
+#     max_retries: 3
+#     temperature: 0.3
+#     max_tokens: 2048
+#     model_name: "meta/llama-3.1-70b-instruct"
+#     llm_name: "nvidia_llama"  
+
+#     system_message_key: "analyse_lab_report"
+    
+#   # Treatment Design with AI Reasoning  
+#   treatment_recommendation:
+#     _type: aiq.agent.reasoning_agent/reasoning_agent
+#     description: "AI-powered RO system design with comprehensive technical reasoning"
+#     requires: ["parameter_violations", "customer_request"]
+#     temperature: 0.2
+#     max_tokens: 3000
+#     model_name: "meta/llama-3.1-70b-instruct"
+#     llm_name: "nvidia_llama" 
+#     system_message_key: "treatment_recommendation"
+    
+#   # System Sizing with AI Optimization
+#   ro_sizing:
+#     _type: aiq.agent.reasoning_agent/reasoning_agent
+#     description: "AI-powered system sizing with optimization reasoning"
+#     requires: ["ro_system_specs", "customer_request"]
+#     temperature: 0.1
+#     max_tokens: 2500
+#     model_name: "meta/llama-3.1-70b-instruct"
+#     llm_name: "nvidia_llama"
+#     system_message_key: "ro_sizing"
+    
+#   # Quotation with Budget Analysis
+#   quotation_generator:
+#     _type: aiq.agent.reasoning_agent/reasoning_agent
+#     description: "AI-powered quotation generation with comprehensive budget analysis"
+#     requires: ["ro_system_specs", "ro_sizing", "customer_request"]
+#     temperature: 0.0
+#     max_tokens: 2000
+#     model_name: "meta/llama-3.1-70b-instruct"
+#     llm_name: "nvidia_llama"
+#     system_message_key: "quotation_generator"
+
+# # LLM Configurations
+# llms:
+#   # Primary LLM for reasoning tasks
+#   nvidia_llama:
+#     _type: nim
+#     model_name: "meta/llama-3.1-70b-instruct"
+#     temperature: 0.2
+#     max_output_tokens: 4096
+#     api_base: "https://integrate.api.nvidia.com/v1"
+#     timeout: 120
+    
+#   # Alternative LLM for comparison
+#   openai_llm:
+#     _type: openai  # or nim if using another NVIDIA model
+#     model_name: "gpt-4"
+#     temperature: 0.3
+#     max_output_tokens: 2048
+    
+#   # High precision LLM for critical calculations
+#   nvidia_llama_precise:
+#     _type: nim
+#     model_name: "meta/llama-3.1-70b-instruct"
+#     temperature: 0.0
+#     max_output_tokens: 2048
+#     api_base: "https://integrate.api.nvidia.com/v1"
+
+# # Embedding Models for Semantic Search
+# embedders:
+#   nvidia_embed:
+#     _type: nim
+#     model_name: "nvidia/nv-embedqa-e5-v5"
+#     api_base: "https://integrate.api.nvidia.com/v1"
+
+# # Main Workflow Configurations
+# workflow:
+#   # Primary orchestrated workflow
+#   main_workflow:
+#     _type: water_treatment_agent
+#     description: "Complete water treatment analysis with AI orchestration"
+#     tool_chain: [analyse_lab_report, treatment_recommendation, ro_sizing, quotation_generator]
+#     llm_name: nvidia_llama
+#     retry_parsing_errors: true
+#     verbose: true
+#     max_retries: 3
+#     validation_strict: true
+#     guideline_url: "https://your-water-standards.com"
+#     component_db_url: "https://ro-components-db.com"
+    
+#   # Alternative React Agent workflow
+#   react_workflow:
+#     _type: react_agent
+#     description: "React-style water treatment agent with dynamic tool usage"
+#     tool_chain: [analyse_lab_report, treatment_recommendation, ro_sizing, quotation_generator]
+#     llm_name: nvidia_llama
+#     retry_parsing_errors: true
+#     verbose: true
+#     max_retries: 5
+#     validation_strict: true
+#     max_iterations: 10
+#     system_message: |
+#       You are a water treatment expert AI agent with access to specialized analysis tools.
+#       Always prioritize water safety over cost considerations.
+#       Use tools systematically: analysis -> treatment -> sizing -> quotation -> assessment.
+
+# # System Messages for Enhanced AI Reasoning
+# system_messages:
+#   analyse_lab_report: |
+#     You are a water quality expert analyzing lab reports against water quality guidelines.
+    
+#     Your role:
+#     1. Compare water parameters against applicable guidelines
+#     2. Identify violations and assess their severity
+#     3. Determine health risks and treatment requirements
+#     4. ALWAYS prioritize water safety over budget constraints
+#     5. Consider the intended water usage when assessing violations
+    
+#     Critical Principles:
+#     - Water safety is NON-NEGOTIABLE
+#     - If budget is insufficient for safe treatment, clearly state this
+#     - Provide clear reasoning for each violation assessment
+#     - Consider synergistic effects between multiple parameter violations
+    
+#   treatment_recommendation: |
+#     You are a water treatment system design engineer specializing in RO systems.
+    
+#     Your role:
+#     1. Analyze parameter violations and design appropriate treatment systems
+#     2. Recommend RO membrane types and configurations
+#     3. Specify pretreatment and post-treatment requirements
+#     4. Assess technical feasibility and provide cost estimates
+#     5. PRIORITIZE effective treatment over cost considerations
+    
+#     Design Principles:
+#     - Effective treatment is the primary goal
+#     - Budget constraints are secondary to safety
+#     - Consider long-term operational costs
+#     - Account for water source variability
+#     - Ensure system redundancy for critical applications
+    
+#   ro_sizing: |
+#     You are a RO system sizing specialist with expertise in system optimization.
+    
+#     Your role:
+#     1. Calculate optimal system dimensions and capacity
+#     2. Determine power and space requirements
+#     3. Assess installation complexity
+#     4. Develop maintenance schedules
+#     5. Optimize for efficiency while meeting performance requirements
+    
+#     Sizing Principles:
+#     - Ensure adequate capacity with safety margins
+#     - Consider peak demand scenarios
+#     - Optimize for energy efficiency
+#     - Plan for future expansion if needed
+#     - Consider local installation constraints
+    
+#   quotation_generator: |
+#     You are a technical sales engineer creating detailed quotations for water treatment systems.
+    
+#     Your role:
+#     1. Generate comprehensive cost breakdowns
+#     2. Analyze budget feasibility
+#     3. Provide alternative solutions if budget is insufficient
+#     4. Include all necessary components and services
+#     5. Be transparent about cost drivers
+    
+#     Quotation Principles:
+#     - Transparency in all cost components
+#     - Clear explanation of why costs are necessary
+#     - If budget is insufficient, explain the risks of cheaper alternatives
+#     - Provide phased implementation options if applicable
+#     - Include long-term operational cost considerations
+
+# # Database and External Service Configuration
+# external_services:
+#   water_standards_api:
+#     url: "https://your-water-standards.com/api"
+#     timeout: 30
+#     retry_count: 3
+    
+#   component_database:
+#     url: "https://ro-components-db.com/api"
+#     timeout: 30
+#     retry_count: 3
+    
+#   customer_database:
+#     # Your existing Django database connection
+#     connection_string: "postgresql://user:pass@localhost/waterdb"
+
+# # Evaluation Configuration
+# evaluation:
+#   test_cases_path: "./tests/water_treatment_test_cases.json"
+#   benchmark_standards:
+#     - "WHO_drinking_water"
+#     - "EPA_primary_standards" 
+#     - "local_industrial_standards"
+  
+#   metrics:
+#     - accuracy_violation_detection
+#     - treatment_effectiveness_score
+#     - cost_optimization_ratio
+#     - safety_compliance_rate
+#     - customer_satisfaction_prediction
+
+# # Logging and Monitoring
+# logging:
+#   level: INFO
+#   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+#   handlers:
+#     - console
+#     - file: "./logs/water_treatment_agent.log"
+#     - structured_json: "./logs/water_treatment_structured.jsonl"
+
+# monitoring:
+#   enable_metrics: true
+#   metrics_endpoint: "/metrics"
+#   health_check_endpoint: "/health"
+  
+#   performance_tracking:
+#     - tool_execution_time
+#     - llm_response_time
+#     - total_workflow_duration
+#     - error_rates_by_tool
+#     - cost_per_analysis
+
+# # Security and Validation
+# security:
+#   validate_inputs: true
+#   sanitize_outputs: true
+#   rate_limiting:
+#     requests_per_minute: 60
+#     burst_size: 10
+  
+#   audit_logging:
+#     enabled: true
+#     include_request_data: true
+#     include_response_data: false  # For privacy
+#     retention_days: 90
+
+# # Performance Optimization
+# performance:
+#   enable_caching: true
+#   cache_ttl_seconds: 3600
+#   parallel_tool_execution: false  # Sequential for better reasoning
+#   batch_processing: false
+  
+#   resource_limits:
+#     max_concurrent_requests: 10
+#     memory_limit_mb: 2048
+#     timeout_seconds: 300
+
+
+
+# water_config.yml
 # SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 functions:
   analyse_lab_report:
-    # _type: water_analysis
-    # _type: reasoning_agent
-    description: "Analyzes water parameters against guidelines"
+    _type: aiq.agent.reasoning_agent/reasoning_agent
+    description: "AI-powered analysis of water parameters against guidelines with safety-first reasoning"
     requires: ["customer_request", "guideline"]
+    min_response_time: 5
+    max_retries: 3
+    temperature: 0.3
+    max_tokens: 2048
+    model_name: "meta/llama-3.1-70b-instruct"
+    llm_name: "nvidia_llama"  # Added required field
+    augmented_fn: null
     
   treatment_recommendation:
-    # _type: treatment_design
-    description: "Generates RO system recommendations"
+    _type: aiq.agent.reasoning_agent/reasoning_agent
+    description: "AI-powered RO system design with comprehensive technical reasoning"
     requires: ["parameter_violations", "customer_request"]
-
+    temperature: 0.2
+    max_tokens: 3000
+    model_name: "meta/llama-3.1-70b-instruct"
+    llm_name: "nvidia_llama"  # Added required field
+    augmented_fn: null
+    
   ro_sizing:
-    # _type: system_sizing
-    description: "Generates RO sizing recommendations"
+    _type: aiq.agent.reasoning_agent/reasoning_agent
+    description: "AI-powered system sizing with optimization reasoning"
     requires: ["ro_system_specs", "customer_request"]
+    temperature: 0.1
+    max_tokens: 2500
+    model_name: "meta/llama-3.1-70b-instruct"
+    llm_name: "nvidia_llama"  # Added required field
+    augmented_fn: null
     
   quotation_generator:
-    # _type: cost_calculation
-    description: "Generates quotation"
-    requires: ["ro_system_specs", "ro_sizing", "pretreatment_plan"]
+    _type: aiq.agent.reasoning_agent/reasoning_agent
+    description: "AI-powered quotation generation with comprehensive budget analysis"
+    requires: ["ro_system_specs", "ro_sizing", "customer_request"]
+    temperature: 0.0
+    max_tokens: 2000
+    model_name: "meta/llama-3.1-70b-instruct"
+    llm_name: "nvidia_llama"  # Added required field
+    augmented_fn: null
 
 llms:
-  # gemini_llm:
-  #   _type: gemini
-  #   model_name: "gemini-2.0-flash"
-  #   temperature: 0.3
-  #   max_output_tokens: 2048
-  nim_llm:
+  nvidia_llama:
     _type: nim
-    model_name: meta/llama-3.1-70b-instruct
-    temperature: 0.0
-
-embedders:
-  nv-embedqa-e5-v5:
-    _type: nim
-    model_name: "nvidia/nv-embedqa-e5-v5"
+    model_name: "meta/llama-3.1-70b-instruct"
+    temperature: 0.2
+    max_output_tokens: 4096
+    api_base: "https://integrate.api.nvidia.com/v1"
+    timeout: 120
 
 workflow:
-  # _type: water_treatment
-  _type: react_agent
+  _type: "react_agent"  # Explicit type declaration
+  description: "Complete water treatment analysis with AI orchestration"
   tool_chain: [analyse_lab_report, treatment_recommendation, ro_sizing, quotation_generator]
+  llm_name: nvidia_llama
   retry_parsing_errors: true
-  # llm_name: gemini_llm
-  llm_name: nim_llm
   verbose: true
   max_retries: 3
   validation_strict: true

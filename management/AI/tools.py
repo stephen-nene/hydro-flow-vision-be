@@ -1,7 +1,9 @@
 # File: tools.py
 from aiq.builder.function_info import FunctionInfo
 from pydantic import BaseModel
+from aiq.builder.builder import Builder
 
+from aiq.cli.register_workflow import register_function
 
 class WaterAnalysisInput(BaseModel):
     # docs strings
@@ -42,7 +44,10 @@ class Guideline(BaseModel):
         trihalomethanes: dict
         turbidity: dict
 
-@register_function()
+# @register_function(
+#     name="analyse_lab_report",
+#     description="Analyse the lab report and return the parameter violations",
+# )
 async def analyse_lab_report(builder: Builder):
     def _analyse(input_data: WaterAnalysisInput):
         # Your existing analysis logic

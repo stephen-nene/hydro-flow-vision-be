@@ -18,31 +18,32 @@
 
 functions:
   analyse_lab_report:
-    _type: water_analysis
+    # _type: water_analysis
+    # _type: reasoning_agent
     description: "Analyzes water parameters against guidelines"
     requires: ["customer_request", "guideline"]
     
   treatment_recommendation:
-    _type: treatment_design
+    # _type: treatment_design
     description: "Generates RO system recommendations"
     requires: ["parameter_violations", "customer_request"]
 
   ro_sizing:
-    _type: system_sizing
+    # _type: system_sizing
     description: "Generates RO sizing recommendations"
     requires: ["ro_system_specs", "customer_request"]
     
   quotation_generator:
-    _type: cost_calculation
+    # _type: cost_calculation
     description: "Generates quotation"
     requires: ["ro_system_specs", "ro_sizing", "pretreatment_plan"]
 
 llms:
-  gemini_llm:
-    _type: gemini
-    model_name: "gemini-2.0-flash"
-    temperature: 0.3
-    max_output_tokens: 2048
+  # gemini_llm:
+  #   _type: gemini
+  #   model_name: "gemini-2.0-flash"
+  #   temperature: 0.3
+  #   max_output_tokens: 2048
   nim_llm:
     _type: nim
     model_name: meta/llama-3.1-70b-instruct
@@ -58,8 +59,8 @@ workflow:
   _type: react_agent
   tool_chain: [analyse_lab_report, treatment_recommendation, ro_sizing, quotation_generator]
   retry_parsing_errors: true
-  llm_name: gemini_llm
-  # llm_name: nim_llm
+  # llm_name: gemini_llm
+  llm_name: nim_llm
   verbose: true
   max_retries: 3
   validation_strict: true

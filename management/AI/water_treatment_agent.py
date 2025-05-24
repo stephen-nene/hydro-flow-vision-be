@@ -1,551 +1,195 @@
-# water_treatment_agent.py - Main orchestration with NVIDIA AI integration
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
-import asyncio
-import json
 import logging
-from typing import Dict, List, Any, Optional
-from datetime import datetime
+from typing import Dict, Any
 
-from aiq.builder.builder import Builder
-from aiq.builder.function_info import FunctionInfo
-from aiq.cli.register_workflow import register_function
-from pydantic import BaseModel, Field
-
-# Import our custom components
-from register_water import (
-    WaterAnalysisConfig, 
-    CustomerRequestInput,
-    TreatmentSpecs,
-    TreatmentRecommendation,
-    ROSizingOutput,
-    QuotationOutput,
-    AIReasoningEngine
-)
-
-from prompts import (
-    LAB_ANALYSIS_SYSTEM_MESSAGE,
-    TREATMENT_RECOMMENDATION_SYSTEM_MESSAGE,
-    RO_SIZING_SYSTEM_MESSAGE,
-    QUOTATION_SYSTEM_MESSAGE,
-    MAIN_AGENT_SYSTEM_MESSAGE,
-    build_analysis_prompt,
-    build_treatment_prompt,
-    build_ro_sizing_prompt,
-    build_quotation_prompt,
-    EXECUTIVE_SUMMARY_TEMPLATE,
-    QA_CONSISTENCY_CHECK,
-    format_for_nvidia_ai
-)
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class WaterTreatmentWorkflowConfig(BaseModel):
-    """Configuration for the complete water treatment workflow"""
+class ReasoningEngine:
+    """
+    Engine for generating reasoning explanations using LLM prompts.
+    Loads prompts from prompts.py and provides methods to generate reasoning.
+    """
     
-    # AI Model Configuration
-    ai_model: str = "nvidia/llama-3.1-nemotron-70b-instruct"
-    enable_ai_reasoning: bool = True
-    reasoning_temperature: float = 0.7
-    max_reasoning_tokens: int = 2048
-    
-    # Workflow Configuration
-    enable_quality_assurance: bool = True
-    enable_cost_optimization: bool = True
-    enable_risk_assessment: bool = True
-    
-    # Data Sources
-    guideline_database_url: str = "https://water-standards-db.com/api"
-    component_database_url: str = "https://treatment-components-db.com/api"
-    cost_database_url: str = "https://water-treatment-costs.com/api"
-    
-    # Validation Settings
-    min_confidence_threshold: float = 0.7
-    require_regulatory_check: bool = True
-    enable_sustainability_assessment: bool = True
-
-class WorkflowExecutionResult(BaseModel):
-    """Complete workflow execution result"""
-    
-    workflow_id: str
-    execution_timestamp: datetime
-    input_data: Dict[str, Any]
-    
-    # Stage Results
-    analysis_result: Optional[Dict[str, Any]] = None
-    treatment_result: Optional[Dict[str, Any]] = None
-    sizing_result: Optional[Dict[str, Any]] = None
-    quotation_result: Optional[Dict[str, Any]] = None
-    
-    # Quality Assurance
-    qa_checks: List[Dict[str, Any]] = []
-    confidence_scores: Dict[str, float] = {}
-    risk_assessment: Dict[str, Any] = {}
-    
-    # Executive Summary
-    executive_summary: str = ""
-    recommendations: List[str] = []
-    next_steps: List[str] = []
-    
-    # Status
-    execution_status: str = "completed"
-    errors: List[str] = []
-    warnings: List[str] = []
-
-class WaterTreatmentOrchestrator:
-    """Main orchestrator for the water treatment workflow"""
-    
-    def __init__(self, config: WaterTreatmentWorkflowConfig):
-        self.config = config
-        self.ai_engine = AIReasoningEngine(WaterAnalysisConfig(
-            ai_model=config.ai_model,
-            enable_reasoning=config.enable_ai_reasoning,
-            reasoning_temperature=config.reasoning_temperature,
-            max_reasoning_tokens=config.max_reasoning_tokens
-        ))
+    def __init__(self, llm_provider):
+        """
+        Initialize the reasoning engine with an LLM provider.
         
-    async def execute_workflow(self, input_data: Dict[str, Any], builder: Builder) -> WorkflowExecutionResult:
-        """Execute the complete water treatment analysis workflow"""
+        Args:
+            llm_provider: The LLM provider to use for generating reasoning
+        """
+        self.llm = llm_provider
         
-        workflow_id = f"wt_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        result = WorkflowExecutionResult(
-            workflow_id=workflow_id,
-            execution_timestamp=datetime.now(),
-            input_data=input_data
-        )
+        # Load prompts from prompts.py
+        try:
+            from prompts import (
+                ANALYSIS_REASONING_PROMPT,
+                TREATMENT_REASONING_PROMPT,
+                RO_SIZING_REASONING_PROMPT,
+                QUOTATION_REASONING_PROMPT
+            )
+            
+            self.prompts = {
+                "analysis": ANALYSIS_REASONING_PROMPT,
+                "treatment": TREATMENT_REASONING_PROMPT,
+                "ro_sizing": RO_SIZING_REASONING_PROMPT,
+                "quotation": QUOTATION_REASONING_PROMPT
+            }
+            logger.info("Successfully loaded reasoning prompts from prompts.py")
+        except ImportError as e:
+            logger.error(f"Failed to import prompts from prompts.py: {e}")
+            # Fallback prompts if import fails
+            self.prompts = self._get_fallback_prompts()
+            logger.info("Using fallback reasoning prompts")
+        except AttributeError as e:
+            logger.error(f"Missing prompt in prompts.py: {e}")
+            # Fallback prompts if attributes are missing
+            self.prompts = self._get_fallback_prompts()
+            logger.info("Using fallback reasoning prompts")
+    
+    async def generate_reasoning(self, prompt_type: str, **kwargs) -> str:
+        """
+        Generate reasoning using the appropriate prompt.
         
-        logger.info(f"Starting workflow execution: {workflow_id}")
+        Args:
+            prompt_type: Type of prompt to use (analysis, treatment, ro_sizing, quotation)
+            **kwargs: Parameters to format the prompt with
+            
+        Returns:
+            str: Generated reasoning text
+            
+        Raises:
+            ValueError: If prompt_type is unknown
+        """
+        if prompt_type not in self.prompts:
+            raise ValueError(f"Unknown prompt type: {prompt_type}")
         
         try:
-            # Step 1: Lab Report Analysis
-            logger.info("Executing lab report analysis...")
-            analysis_result = await self._execute_lab_analysis(input_data, builder)
-            result.analysis_result = analysis_result
-            result.confidence_scores["analysis"] = analysis_result.get("confidence_score", 0.0)
+            # Format prompt with provided kwargs
+            formatted_prompt = self.prompts[prompt_type].format(**kwargs)
             
-            # Step 2: Treatment Recommendation
-            logger.info("Generating treatment recommendations...")
-            treatment_result = await self._execute_treatment_recommendation(
-                analysis_result, input_data, builder
-            )
-            result.treatment_result = treatment_result
-            result.confidence_scores["treatment"] = treatment_result.get("confidence_score", 0.0)
+            # Generate reasoning using LLM
+            response = await self.llm.agenerate(formatted_prompt)
             
-            # Step 3: RO Sizing (if applicable)
-            if self._requires_ro_sizing(treatment_result):
-                logger.info("Sizing RO system...")
-                sizing_result = await self._execute_ro_sizing(
-                    analysis_result, input_data, builder
-                )
-                result.sizing_result = sizing_result
-                result.confidence_scores["sizing"] = sizing_result.get("confidence_score", 0.0)
-            
-            # Step 4: Quotation Generation
-            logger.info("Generating quotation...")
-            quotation_result = await self._execute_quotation_generation(
-                analysis_result, treatment_result, result.sizing_result, input_data, builder
-            )
-            result.quotation_result = quotation_result
-            result.confidence_scores["quotation"] = quotation_result.get("confidence_score", 0.0)
-            
-            # Step 5: Quality Assurance
-            if self.config.enable_quality_assurance:
-                logger.info("Performing quality assurance checks...")
-                qa_results = await self._perform_quality_assurance(result)
-                result.qa_checks = qa_results
-            
-            # Step 6: Risk Assessment
-            if self.config.enable_risk_assessment:
-                logger.info("Conducting risk assessment...")
-                risk_assessment = await self._conduct_risk_assessment(result)
-                result.risk_assessment = risk_assessment
-            
-            # Step 7: Executive Summary Generation
-            logger.info("Generating executive summary...")
-            executive_summary = await self._generate_executive_summary(result)
-            result.executive_summary = executive_summary
-            
-            # Final validation
-            await self._validate_workflow_results(result)
-            
-            logger.info(f"Workflow execution completed successfully: {workflow_id}")
-            
+            return response.text
+        except KeyError as e:
+            logger.error(f"Missing parameter for prompt formatting: {e}")
+            return f"Error generating reasoning: missing parameter {e}"
         except Exception as e:
-            logger.error(f"Workflow execution failed: {str(e)}")
-            result.execution_status = "failed"
-            result.errors.append(str(e))
-        
-        return result
+            logger.error(f"Error generating reasoning: {e}")
+            return f"Error generating reasoning: {e}"
     
-    async def _execute_lab_analysis(self, input_data: Dict[str, Any], builder: Builder) -> Dict[str, Any]:
-        """Execute lab report analysis with AI reasoning"""
+    def _get_fallback_prompts(self) -> Dict[str, str]:
+        """
+        Get fallback prompts in case prompts.py is missing or incomplete.
         
-        customer_request = input_data.get("customer_request", {})
-        guidelines = input_data.get("guidelines", [])
-        
-        # Get the analysis tool
-        analysis_tool = await builder.get_tool("analyse_lab_report")
-        
-        # Execute analysis
-        analysis_result = await analysis_tool({
-            "customer_request": customer_request,
-            "guideline": guidelines
-        })
-        
-        # Add AI reasoning if enabled
-        if self.config.enable_ai_reasoning:
-            analysis_prompt = build_analysis_prompt(customer_request, guidelines)
-            ai_reasoning = await self.ai_engine._call_nvidia_ai(
-                LAB_ANALYSIS_SYSTEM_MESSAGE,
-                analysis_prompt
-            )
-            analysis_result["ai_reasoning"] = ai_reasoning.get("reasoning", "")
-            analysis_result["confidence_score"] = ai_reasoning.get("confidence", 0.8)
-        
-        return analysis_result
-    
-    async def _execute_treatment_recommendation(
-        self, analysis_result: Dict[str, Any], input_data: Dict[str, Any], builder: Builder
-    ) -> Dict[str, Any]:
-        """Execute treatment recommendation with AI reasoning"""
-        
-        customer_request = input_data.get("customer_request", {})
-        
-        # Get the treatment tool
-        treatment_tool = await builder.get_tool("treatment_recommendation")
-        
-        # Execute treatment recommendation
-        treatment_result = await treatment_tool({
-            "treatment_specs": analysis_result,
-            "customer_context": customer_request
-        })
-        
-        # Add AI reasoning if enabled
-        if self.config.enable_ai_reasoning:
-            treatment_prompt = build_treatment_prompt(analysis_result, customer_request)
-            ai_reasoning = await self.ai_engine._call_nvidia_ai(
-                TREATMENT_RECOMMENDATION_SYSTEM_MESSAGE,
-                treatment_prompt
-            )
-            treatment_result["ai_reasoning"] = ai_reasoning.get("reasoning", "")
-            treatment_result["confidence_score"] = ai_reasoning.get("confidence", 0.8)
-        
-        return treatment_result
-    
-    async def _execute_ro_sizing(
-        self, analysis_result: Dict[str, Any], input_data: Dict[str, Any], builder: Builder
-    ) -> Dict[str, Any]:
-        """Execute RO sizing with AI reasoning"""
-        
-        customer_request = input_data.get("customer_request", {})
-        flow_requirements = {
-            "daily_flow_rate": customer_request.get("daily_flow_rate", 1000),
-            "peak_factor": 1.5,
-            "operating_hours": 16
-        }
-        
-        # Get the RO sizing tool
-        ro_tool = await builder.get_tool("ro_sizing")
-        
-        # Execute RO sizing
-        sizing_result = await ro_tool({
-            "treatment_specs": analysis_result,
-            "flow_requirements": flow_requirements
-        })
-        
-        # Add AI reasoning if enabled
-        if self.config.enable_ai_reasoning:
-            sizing_prompt = build_ro_sizing_prompt(analysis_result, flow_requirements)
-            ai_reasoning = await self.ai_engine._call_nvidia_ai(
-                RO_SIZING_SYSTEM_MESSAGE,
-                sizing_prompt
-            )
-            sizing_result["ai_reasoning"] = ai_reasoning.get("reasoning", "")
-            sizing_result["confidence_score"] = ai_reasoning.get("confidence", 0.8)
-        
-        return sizing_result
-    
-    async def _execute_quotation_generation(
-        self, analysis_result: Dict[str, Any], treatment_result: Dict[str, Any],
-        sizing_result: Optional[Dict[str, Any]], input_data: Dict[str, Any], builder: Builder
-    ) -> Dict[str, Any]:
-        """Execute quotation generation with AI reasoning"""
-        
-        customer_request = input_data.get("customer_request", {})
-        customer_budget = customer_request.get("budget", {})
-        
-        # Combine system specifications
-        system_specs = {
-            **analysis_result,
-            **treatment_result
-        }
-        if sizing_result:
-            system_specs.update(sizing_result)
-        
-        # Get the quotation tool
-        quotation_tool = await builder.get_tool("quotation_generator")
-        
-        # Execute quotation generation
-        quotation_result = await quotation_tool({
-            "system_specs": system_specs,
-            "customer_budget": customer_budget
-        })
-        
-        # Add AI reasoning if enabled
-        if self.config.enable_ai_reasoning:
-            quotation_prompt = build_quotation_prompt(system_specs, customer_budget)
-            ai_reasoning = await self.ai_engine._call_nvidia_ai(
-                QUOTATION_SYSTEM_MESSAGE,
-                quotation_prompt
-            )
-            quotation_result["ai_reasoning"] = ai_reasoning.get("reasoning", "")
-            quotation_result["confidence_score"] = ai_reasoning.get("confidence", 0.8)
-        
-        return quotation_result
-    
-    def _requires_ro_sizing(self, treatment_result: Dict[str, Any]) -> bool:
-        """Determine if RO sizing is required based on treatment recommendations"""
-        
-        primary_treatment = treatment_result.get("primary_treatment", "")
-        secondary_treatments = treatment_result.get("secondary_treatments", [])
-        
-        ro_indicators = ["reverse osmosis", "ro", "membrane", "desalination"]
-        
-        return (
-            any(indicator in primary_treatment.lower() for indicator in ro_indicators) or
-            any(any(indicator in treatment.lower() for indicator in ro_indicators) 
-                for treatment in secondary_treatments)
-        )
-    
-    async def _perform_quality_assurance(self, result: WorkflowExecutionResult) -> List[Dict[str, Any]]:
-        """Perform quality assurance checks on workflow results"""
-        
-        qa_checks = []
-        
-        # Consistency check
-        consistency_issues = await self._check_consistency(result)
-        if consistency_issues:
-            qa_checks.append({
-                "check_type": "consistency",
-                "status": "warning",
-                "issues": consistency_issues
-            })
-        
-        # Completeness check
-        completeness_issues = await self._check_completeness(result)
-        if completeness_issues:
-            qa_checks.append({
-                "check_type": "completeness", 
-                "status": "warning",
-                "issues": completeness_issues
-            })
-        
-        # Confidence threshold check
-        low_confidence_stages = [
-            stage for stage, score in result.confidence_scores.items()
-            if score < self.config.min_confidence_threshold
-        ]
-        if low_confidence_stages:
-            qa_checks.append({
-                "check_type": "confidence",
-                "status": "warning",
-                "low_confidence_stages": low_confidence_stages
-            })
-        
-        return qa_checks
-    
-    async def _check_consistency(self, result: WorkflowExecutionResult) -> List[str]:
-        """Check consistency across workflow stages"""
-        
-        issues = []
-        
-        # Check if treatments address all identified violations
-        if result.analysis_result and result.treatment_result:
-            violations = result.analysis_result.get("required_treatments", [])
-            treatments = result.treatment_result.get("secondary_treatments", [])
+        Returns:
+            Dict[str, str]: Dictionary of fallback prompts
+        """
+        return {
+            "analysis": """
+            Analyze the following water parameters against guidelines:
+            Parameters: {water_parameters}
+            Guidelines: {guideline}
+            Violations found: {parameter_violations}
             
-            unaddressed_violations = set(violations) - set(treatments)
-            if unaddressed_violations:
-                issues.append(f"Unaddressed violations: {list(unaddressed_violations)}")
-        
-        # Check if sizing matches treatment requirements
-        if result.treatment_result and result.sizing_result:
-            treatment_capacity = result.treatment_result.get("system_capacity")
-            sizing_capacity = result.sizing_result.get("system_capacity")
+            Explain why these parameters are concerning and their potential impact on water quality.
+            """,
             
-            if treatment_capacity and sizing_capacity:
-                if abs(treatment_capacity - sizing_capacity) > treatment_capacity * 0.2:
-                    issues.append("Capacity mismatch between treatment and sizing stages")
-        
-        return issues
-    
-    async def _check_completeness(self, result: WorkflowExecutionResult) -> List[str]:
-        """Check completeness of workflow results"""
-        
-        issues = []
-        
-        # Check if all required stages completed
-        required_stages = ["analysis_result", "treatment_result", "quotation_result"]
-        for stage in required_stages:
-            if not getattr(result, stage):
-                issues.append(f"Missing {stage}")
-        
-        # Check if critical information is present
-        if result.quotation_result:
-            if not result.quotation_result.get("total_cost"):
-                issues.append("Missing total cost in quotation")
-            if not result.quotation_result.get("cost_breakdown"):
-                issues.append("Missing cost breakdown in quotation")
-        
-        return issues
-    
-    async def _conduct_risk_assessment(self, result: WorkflowExecutionResult) -> Dict[str, Any]:
-        """Conduct risk assessment for the recommended solution"""
-        
-        risk_assessment = {
-            "technical_risks": [],
-            "financial_risks": [],
-            "operational_risks": [],
-            "regulatory_risks": [],
-            "overall_risk_level": "medium"
+            "treatment": """
+            Based on the following water parameter violations: {parameter_violations}
+            And customer requirements:
+            - Location: {location}
+            - Water source: {water_source}
+            - Usage: {water_usage}
+            - Flow rate: {daily_flow_rate}
+            - Budget: {budget}
+            
+            I've recommended these treatment systems: {recommended_systems}
+            
+            Provide a detailed explanation of:
+            1. Why each system component is necessary based on the specific parameter violations
+            2. How these components work together to address all water quality issues
+            3. Why this approach prioritizes water cleaning effectiveness while considering the customer's budget
+            4. Any trade-offs made and their justification
+            """,
+            
+            "ro_sizing": """
+            Based on:
+            - Customer's daily flow rate: {daily_flow_rate}
+            - Water usage: {water_usage}
+            - Recommended RO system: {ro_components}
+            
+            I've calculated the following sizing specifications:
+            {sizing_results}
+            
+            Provide a detailed explanation of:
+            1. How these dimensions were calculated and why they're appropriate
+            2. How the system capacity matches the customer's needs
+            3. Any safety factors included and why
+            4. How this sizing optimizes for both performance and cost-effectiveness
+            5. Any potential future scalability considerations
+            """,
+            
+            "quotation": """
+            Based on the recommended water treatment system:
+            - Components: {ro_components}
+            - Sizing: {sizing_specifications}
+            - Pretreatment: {pretreatment_plan}
+            
+            I've calculated the following costs:
+            - Component costs: {component_costs}
+            - Installation costs: {installation_costs}
+            - First-year maintenance costs: {maintenance_costs}
+            - Total cost: {total_cost} {currency}
+            
+            Customer's budget: {budget_amount} {currency}
+            Within budget: {within_budget}
+            
+            Provide a detailed explanation of:
+            1. How each cost was calculated and what it includes
+            2. The value proposition for the customer (ROI, water quality benefits, etc.)
+            3. If not within budget, what compromises could be made and their impacts
+            4. Long-term cost considerations (operational costs, component lifespan, etc.)
+            5. Why this represents the best solution for the customer's specific needs
+            """
         }
-        
-        # Technical risks
-        if result.confidence_scores:
-            avg_confidence = sum(result.confidence_scores.values()) / len(result.confidence_scores)
-            if avg_confidence < 0.7:
-                risk_assessment["technical_risks"].append("Low confidence in technical recommendations")
-        
-        # Financial risks
-        if result.quotation_result:
-            total_cost = result.quotation_result.get("total_cost", 0)
-            customer_budget = result.input_data.get("customer_request", {}).get("budget", {})
-            if isinstance(customer_budget, dict) and customer_budget.get("total_budget"):
-                if total_cost > customer_budget["total_budget"] * 1.2:
-                    risk_assessment["financial_risks"].append("Recommended solution exceeds budget by >20%")
-        
-        # Operational risks
-        if result.treatment_result:
-            treatment_complexity = len(result.treatment_result.get("secondary_treatments", []))
-            if treatment_complexity > 3:
-                risk_assessment["operational_risks"].append("High system complexity may require skilled operators")
-        
-        return risk_assessment
-    
-    async def _generate_executive_summary(self, result: WorkflowExecutionResult) -> str:
-        """Generate executive summary using AI"""
-        
-        if not self.config.enable_ai_reasoning:
-            return "Workflow completed successfully. Detailed results available in individual stages."
-        
-        summary_data = {
-            "analysis_summary": result.analysis_result.get("ai_reasoning", "Analysis completed"),
-            "treatment_summary": result.treatment_result.get("ai_reasoning", "Treatment designed"),
-            "cost_summary": result.quotation_result.get("ai_reasoning", "Quotation generated"),
-            "confidence_scores": result.confidence_scores,
-            "qa_issues": len(result.qa_checks),
-            "risk_level": result.risk_assessment.get("overall_risk_level", "medium")
-        }
-        
-        summary_prompt = f"""
-Generate an executive summary for a water treatment system analysis.
 
-Workflow Results Summary:
-{json.dumps(summary_data, indent=2)}
 
-Please provide a concise executive summary that covers:
-1. Overall water quality assessment
-2. Recommended solution overview
-3. Investment requirements and ROI
-4. Key risks and mitigation strategies
-5. Implementation timeline and next steps
-
-Format the summary for business decision-makers who need clear, actionable information.
-"""
-        
-        ai_response = await self.ai_engine._call_nvidia_ai(
-            MAIN_AGENT_SYSTEM_MESSAGE,
-            summary_prompt
-        )
-        
-        return ai_response.get("reasoning", "Executive summary generation failed")
+def compile_comprehensive_reasoning(reasoning_list: list) -> str:
+    """
+    Compile multiple reasoning outputs into a comprehensive report.
     
-    async def _validate_workflow_results(self, result: WorkflowExecutionResult):
-        """Final validation of workflow results"""
+    Args:
+        reasoning_list: List of reasoning outputs from different tools
         
-        # Check for critical errors
-        if not result.analysis_result:
-            result.errors.append("Lab analysis failed to complete")
-            result.execution_status = "failed"
-        
-        if not result.treatment_result:
-            result.errors.append("Treatment recommendation failed to complete")
-            result.execution_status = "failed"
-        
-        if not result.quotation_result:
-            result.errors.append("Quotation generation failed to complete")
-            result.execution_status = "failed"
-        
-        # Check confidence levels
-        low_confidence_count = sum(
-            1 for score in result.confidence_scores.values()
-            if score < self.config.min_confidence_threshold
-        )
-        
-        if low_confidence_count > 2:
-            result.warnings.append("Multiple stages have low confidence scores")
-        
-        # Set final status
-        if result.errors:
-            result.execution_status = "failed"
-        elif result.warnings or result.qa_checks:
-            result.execution_status = "completed_with_warnings"
-        else:
-            result.execution_status = "completed"
-
-# Main registration function
-@register_function()
-async def water_treatment_agent(builder: Builder):
-    """Main water treatment agent with full AI integration"""
+    Returns:
+        str: Comprehensive reasoning report
+    """
+    if not reasoning_list or all(not r for r in reasoning_list):
+        return "No reasoning provided by any tool."
     
-    config = WaterTreatmentWorkflowConfig()
-    orchestrator = WaterTreatmentOrchestrator(config)
+    sections = [
+        "# Water Treatment System Comprehensive Analysis",
+        "",
+        "## Water Quality Analysis",
+        reasoning_list[0] if len(reasoning_list) > 0 and reasoning_list[0] else "No analysis reasoning provided.",
+        "",
+        "## Treatment Recommendation Rationale",
+        reasoning_list[1] if len(reasoning_list) > 1 and reasoning_list[1] else "No treatment reasoning provided.",
+        "",
+        "## System Sizing Justification",
+        reasoning_list[2] if len(reasoning_list) > 2 and reasoning_list[2] else "No sizing reasoning provided.",
+        "",
+        "## Cost and Value Analysis",
+        reasoning_list[3] if len(reasoning_list) > 3 and reasoning_list[3] else "No quotation reasoning provided.",
+        "",
+        "## Conclusion",
+        "This comprehensive analysis provides a complete picture of the water treatment solution, "
+        "from initial water quality assessment through treatment selection, system sizing, and cost analysis. "
+        "Each component of the solution has been carefully selected and sized to address the specific water quality "
+        "issues while considering the customer's requirements and budget constraints."
+    ]
     
-    async def run_complete_analysis(input_data: dict) -> dict:
-        """Execute the complete water treatment analysis workflow"""
-        
-        try:
-            # Execute the workflow
-            result = await orchestrator.execute_workflow(input_data, builder)
-            
-            # Return structured result
-            return {
-                "workflow_id": result.workflow_id,
-                "execution_status": result.execution_status,
-                "analysis": result.analysis_result,
-                "treatment_recommendation": result.treatment_result,
-                "ro_sizing": result.sizing_result,
-                "quotation": result.quotation_result,
-                "executive_summary": result.executive_summary,
-                "quality_assurance": result.qa_checks,
-                "risk_assessment": result.risk_assessment,
-                "confidence_scores": result.confidence_scores,
-                "errors": result.errors,
-                "warnings": result.warnings
-            }
-            
-        except Exception as e:
-            logger.error(f"Water treatment agent execution failed: {str(e)}")
-            return {
-                "execution_status": "failed",
-                "error": str(e),
-                "workflow_id": f"failed_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            }
-    
-    yield FunctionInfo.from_fn(
-        run_complete_analysis,
-        description="Complete water treatment analysis system with AI reasoning, quality assurance, and risk assessment",
-        input_model={"input_data": dict},
-        output_model=dict
-    )
+    return "\n".join(sections)

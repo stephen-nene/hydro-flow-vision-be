@@ -229,7 +229,7 @@ workflow.add_conditional_edges(
 graph = workflow.compile()
 
 # Test function
-def run_agent(query: str):
+def run_agent(query: dict):
     """Run the agent with a query and print the results"""
     print(f"\n🔍 QUERY: {query}\n")
     print("=" * 80)

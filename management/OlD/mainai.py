@@ -71,16 +71,27 @@ from pydantic import BaseModel
 import logging
 
 # Define tool dependencies and data flow
+
 TOOL_DEPENDENCY_MAP = {
-    "analyse_lab_report": {
+    # "analyse_lab_report": {
+    #     "requires": ["customer_request", "guideline"],
+    #     "provides": ["treatment_specs"],
+    #     "description": "Analyzes water lab reports to generate treatment specifications"
+    # },
+    # "treatment_recommendation": {
+    #     "requires": ["treatment_specs", "customer_request"],
+    #     "provides": ["ro_system_specs"],
+    #     "description": "Recommends treatment systems based on analysis"
+    # },
+        "analyse_lab_report": {
         "requires": ["customer_request", "guideline"],
-        "provides": ["treatment_specs"],
-        "description": "Analyzes water lab reports to generate treatment specifications"
+        "provides": ["parameter_violations", "customer_request"],  # Now matches output
+        "description": "Identifies parameter violations"
     },
     "treatment_recommendation": {
-        "requires": ["treatment_specs", "customer_request"],
-        "provides": ["ro_system_specs"],
-        "description": "Recommends treatment systems based on analysis"
+        "requires": ["parameter_violations", "customer_request"],  # Matches input schema
+        "provides": ["ro_system_specs", "pretreatment"],
+        "description": "Generates treatment recommendations"
     },
     "ro_sizing": {
         "requires": ["ro_system_specs", "customer_request"],
@@ -222,7 +233,7 @@ def execute_tool_sequence(
                 "status": "failed",
                 "error": error_msg,
                 "timestamp": datetime.now().isoformat(),
-                "context_snapshot": context.copy()
+                # "context_snapshot": context.copy()
             })
 
             if tool_name == target_tool:
@@ -243,6 +254,35 @@ def execute_tool_sequence(
         "success": len(errors) == 0 and len(successful_steps) > 0,
         "timestamp": datetime.now().isoformat()
     }
+
+
+def run_sequential_workflow2(initial_data: Dict, tool_sequence: List[str]):
+    # Initialize graph (add this)
+    workflow = StateGraph(SequentialAgentState)
+    workflow.add_node("execute_tool", run_tool)
+    workflow.add_conditional_edges(
+        "execute_tool",
+        lambda state: END if state["current_tool_index"] >= len(state["tool_sequence"]) else "execute_tool"
+    )
+    workflow.set_entry_point("execute_tool")
+    graph = workflow.compile()
+
+    # Rest of your existing function...
+    initial_state = {
+        "messages": [],
+        "initial_request_data": initial_data,
+        "tool_sequence": tool_sequence,
+        "current_tool_index": 0,
+        "tool_results": {},
+        "error_log": [],
+        "final_output": None,
+    }
+
+    for state_update in graph.stream(initial_state, stream_mode="values"):
+        print(f"Tool {state_update['tool_sequence'][state_update['current_tool_index']-1]} completed")
+        final_state = state_update
+
+    return final_state
 
 def run_sequential_workflow(initial_data: Dict, tool_sequence: List[str]):
     """Runs the sequential workflow."""

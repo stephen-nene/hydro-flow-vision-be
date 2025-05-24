@@ -19,7 +19,7 @@ import base64
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from management.pdfs.gen import generate_quotation_pdf
+from  ...management.pdfs.gen import generate_quotation_pdf
 
 # Initialize the LLM
 llm2 = ChatOpenAI(

@@ -1,4 +1,4 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets,  status, filters
 from rest_framework.views import APIView
 
 from django.db.models import Prefetch
@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404
 
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .models import *
@@ -14,8 +16,8 @@ from .serializers import *
 from uuid import UUID
 
 from .AI.tools import *
-# from .AI.old.mainai import run_agent
-from .AI.mainai import run_sequential_workflow,execute_tool_sequence
+from .AI.old.mainai import run_agent,run_agent2
+# from .AI.mainai import run_sequential_workflow,execute_tool_sequence
 from functools import lru_cache
 
 @lru_cache(maxsize=100)
@@ -48,8 +50,11 @@ class WaterGuidelineViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing water quality guidelines.
     """
-    queryset = WaterGuideline.objects.all()
+    queryset = WaterGuideline.objects.prefetch_related('parameters').all()
     serializer_class = WaterGuidelineSerializer
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['id', 'body', 'usage']
+    ordering = ['id']
 
     # -------------------------
     # 🟩 LIST
@@ -134,11 +139,27 @@ class WaterGuidelineViewSet(viewsets.ModelViewSet):
         responses={200: WaterGuidelineSerializer(many=True)},
         tags=["Water Quality Standards"]
     )
+    # @action(detail=False, methods=['get'])
+    # def by_usage(self, request):
+    #     usage = request.query_params.get('usage')
+    #     guidelines = WaterGuideline.objects.filter(usage__iexact=usage)
+    #     serializer = self.get_serializer(guidelines, many=True)
+    #     return Response(serializer.data)
     @action(detail=False, methods=['get'])
     def by_usage(self, request):
         usage = request.query_params.get('usage')
-        guidelines = WaterGuideline.objects.filter(usage__iexact=usage)
-        serializer = self.get_serializer(guidelines, many=True)
+        queryset = WaterGuideline.objects.filter(usage__iexact=usage)
+
+        # Apply pagination manually
+        paginator = self.paginator
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+
+        if paginated_queryset is not None:
+            serializer = self.get_serializer(paginated_queryset, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        # Fallback (unlikely unless paginator is disabled)
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     # -------------------------
     # 🟩 DESTROY
@@ -571,15 +592,23 @@ class FormatCustomerRequestPromptView(APIView):
             # result = analyse_lab_report(tool_input)
             sequence_to_run = ["treatment_recommendation", "ro_sizing", "quotation_generator", "proposal_generator"]
 
-            agent_res = analyse_lab_report2(
-            tool_input
-            )
+            # agent_res = analyse_lab_report(
+            # tool_input
+            # )
 
-            # agent_res2= execute_tool_sequence(
+            # agent_res2= run_sequential_workflow(
+            #     initial_data=tool_input, 
+            #     tool_sequence=sequence_to_run,
+            # )
+            
+            # agent_res=run_agent2(
             #     initial_data=tool_input, 
             #     # target_tool="proposal_generator",
             #     full_sequence=True
+
             # )
+            
+            agent_res=run_agent(tool_input)
 
 
 

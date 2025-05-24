@@ -111,13 +111,16 @@ class WaterAnalysisInput(BaseModel):
     customer_request: dict = Field(..., description="Contains water parameters, usage, and flow rate")
     guideline: dict = Field(..., description="Water quality standards to compare against")
 
-class WaterAnalysisOutput(BaseModel):
+class WaterAnalysisOutput2(BaseModel):
     treatment_specs: dict = Field(..., description="Required treatments and priority level")
     parameter_violations: list = Field(..., description="List of violated parameters with details")
 
-class TreatmentRecommendationInput(BaseModel):
+class TreatmentRecommendationInput2(BaseModel):
     treatment_specs: dict = Field(..., description="Output from water analysis")
     customer_request: dict = Field(..., description="Usage and technical requirements")
+class TreatmentRecommendationInput(BaseModel):
+    parameter_violations: dict = Field(..., description="Violations from analysis")
+    customer_request: dict = Field(..., description="Original customer requirements")
 
 class ROSizingInput(BaseModel):
     treatment_specs: dict = Field(..., description="Recommended treatment system specs")
@@ -174,51 +177,53 @@ def analyse_lab_report2(customer_request: dict, guideline: dict) -> dict:
         3. Return JSON matching the schema"""
     
     result = llm.invoke(prompt)
-    return WaterAnalysisOutput(
-        treatment_specs={}, 
-        parameter_violations=result["content"]
-    ).model_dump()
-    # return result.dict()
+    # return WaterAnalysisOutput(
+    #     treatment_specs={}, 
+    #     parameter_violations=result["content"]
+    # ).model_dump()
+    return result.dict()
+
+class WaterAnalysisOutput(BaseModel):
+    parameter_violations: dict = Field(..., description="Key: parameter name, Value: violation details")
+    customer_request: dict = Field(..., description="Original customer data")
 
 @tool(args_schema=WaterAnalysisInput)
 def analyse_lab_report(customer_request: dict, guideline: dict) -> dict:
-    """Analyzes water parameters against guidelines"""
-    violations = []
-
-    for param, customer_value in customer_request.items():
-        guideline_value = guideline.get(param)
-        if not guideline_value:
-            continue
-
-        min_val = guideline_value.get("min")
-        max_val = guideline_value.get("max")
-        unit = guideline_value.get("unit", "")
-
-        if min_val is not None and customer_value < min_val:
-            violations.append({
-                "parameter": param,
-                "value": customer_value,
-                "violation": "below minimum",
-                "guideline_range": f"{min_val} - {max_val} {unit}"
-            })
-        elif max_val is not None and customer_value > max_val:
-            violations.append({
-                "parameter": param,
-                "value": customer_value,
-                "violation": "above maximum",
-                "guideline_range": f"{min_val} - {max_val} {unit}"
-            })
-
+    """Returns format: {'parameter_violations': {param: details}, 'customer_request': {...}}"""
+    violations = {}
+    
+    for param, value in customer_request["measurements"].items():
+        if param in guideline:
+            min_val = guideline[param]["min"]
+            max_val = guideline[param]["max"]
+            
+            if value < min_val:
+                violations[param] = {
+                    "value": value,
+                    "deviation": "LOW", 
+                    "required_adjustment": f"Increase to ≥{min_val}"
+                }
+            elif value > max_val:
+                violations[param] = {
+                    "value": value,
+                    "deviation": "HIGH",
+                    "required_adjustment": f"Reduce to ≤{max_val}"
+                }
+    
     return {
-        "parameter_violations": violations
+        "parameter_violations": violations,
+        "customer_request": customer_request  # Pass through original data
     }
 
 
 @tool(args_schema=TreatmentRecommendationInput)
-def treatment_recommendation(input_data: Dict[str, Any]) -> Dict[str, Any]:
+def treatment_recommendation2(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Recommends treatment systems based on parameter violations and customer needs"""
-    parameter_violations = input_data.get("parameter_violations", {})
+    parameter_violations = input_data.get("treatment_specs", {})
     customer_request = input_data.get("customer_request", {})
+    violations = input_data["parameter_violations"]
+    requirements = input_data["customer_request"]
+    
     prompt = f"""
         You are a water treatment system design expert. Based on the data below, recommend:
 
@@ -239,6 +244,38 @@ def treatment_recommendation(input_data: Dict[str, Any]) -> Dict[str, Any]:
     result = llm_fallback(prompt, str)  # Expecting a string (Markdown)
     return {"treatment_specs": result}
 
+@tool(args_schema=TreatmentRecommendationInput)
+def treatment_recommendation(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Returns format: {'ro_system_specs': {...}, 'pretreatment': {...}}"""
+    violations = input_data["parameter_violations"]
+    requirements = input_data["customer_request"]
+    
+    prompt = f"""
+    Given these water quality violations:
+    {json.dumps(violations, indent=2)}
+    
+    And customer requirements:
+    {json.dumps(requirements, indent=2)}
+    
+    Output JSON with:
+    1. RO system specs (type, capacity, components)
+    2. Pretreatment plan (filtration, chemicals)
+    """
+    
+    # Force JSON output
+    response = llm.invoke(
+        prompt,
+        response_format={"type": "json_object"}  # Required for Gemini
+    )
+    
+    try:
+        result = json.loads(response.content)
+        return {
+            "ro_system_specs": result["ro_system_specs"],
+            "pretreatment": result["pretreatment"]
+        }
+    except Exception as e:
+        raise ValueError(f"Invalid LLM response: {str(e)}")
 
 @tool(args_schema=ROSizingInput)
 def ro_sizing(input_data: Dict[str, Any]) -> Dict[str, Any]:

@@ -5,6 +5,7 @@ from weasyprint import HTML
 from weasyprint.text.fonts import FontConfiguration
 import logging
 logger = logging.getLogger(__name__)
+
 def generate_pdf_from_markdown(markdown_content: str, stylesheet=None) -> str:
     """
     Converts markdown content to PDF with optional CSS styling

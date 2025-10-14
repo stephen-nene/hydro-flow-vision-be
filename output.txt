@@ -1,0 +1,15 @@
+# Nmap 7.95 scan initiated Wed May 28 22:01:13 2025 as: nmap -oN output.txt 142.44.157.51
+Nmap scan report for bhs108b.truehost.cloud (142.44.157.51)
+Host is up (0.24s latency).
+Not shown: 931 filtered tcp ports (no-response), 61 closed tcp ports (conn-refused)
+PORT    STATE SERVICE
+21/tcp  open  ftp
+80/tcp  open  http
+143/tcp open  imap
+443/tcp open  https
+465/tcp open  smtps
+587/tcp open  submission
+993/tcp open  imaps
+995/tcp open  pop3s
+
+# Nmap done at Wed May 28 22:02:13 2025 -- 1 IP address (1 host up) scanned in 60.03 seconds

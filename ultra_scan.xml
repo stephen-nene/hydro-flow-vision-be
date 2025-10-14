@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.95 scan initiated Wed May 28 22:15:01 2025 as: nmap -sS -sU -p- -A -T4 -Pn -&#45;script default,discovery,vuln,exploit -&#45;reason -oA ultra_scan 142.44.157.51 -->
+<nmaprun scanner="nmap" args="nmap -sS -sU -p- -A -T4 -Pn -&#45;script default,discovery,vuln,exploit -&#45;reason -oA ultra_scan 142.44.157.51" start="1748459701" startstr="Wed May 28 22:15:01 2025" version="7.95" xmloutputversion="1.05">
+<scaninfo type="syn" protocol="tcp" numservices="65535" services="1-65535"/>
+<scaninfo type="udp" protocol="udp" numservices="65535" services="1-65535"/>

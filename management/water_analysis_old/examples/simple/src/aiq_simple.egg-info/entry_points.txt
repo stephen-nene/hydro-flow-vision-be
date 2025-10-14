@@ -1,0 +1,2 @@
+[aiq.components]
+aiq_simple = aiq_simple.register

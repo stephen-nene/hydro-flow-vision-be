@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: aiq_simple
+Version: 1.2.0.dev7+ga0eb7a4
+Summary: Simple AIQ toolkit example
+Keywords: ai,rag,agents
+Classifier: Programming Language :: Python
+Requires-Python: <3.13,>=3.11
+Requires-Dist: aiqtoolkit[langchain]~=1.2
+Requires-Dist: faiss-cpu==1.9.0
